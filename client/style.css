@@ -1,14 +1,288 @@
-body {
-  font-family: Arial;
+/* RESET */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  font-family: Arial, sans-serif;
 }
 
-#chat {
-  width: 400px;
-  margin: 50px auto;
+html, body {
+  height: 100%;
 }
 
-#messages {
-  height: 300px;
-  overflow-y: scroll;
+/* APP */
+.app {
+  display: flex;
+  height: 100vh;
+}
+
+/* SIDEBAR */
+.sidebar {
+  width: 70px;
+  background: #1f2a40;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 10px 0;
+}
+
+.sidebar button {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 22px;
+  padding: 15px;
+  cursor: pointer;
+}
+
+.sidebar button:hover {
+  background: #2e3b5e;
+}
+
+.nav-top,
+.nav-bottom {
+  display: flex;
+  flex-direction: column;
+}
+
+/* CONTENT */
+.content {
+  flex: 1;
+  background: #f5f6fa;
+}
+
+/* PAGE */
+.page {
+  display: none;
+  height: 100%;
+  padding: 20px;
+}
+
+.page.active {
+  display: block;
+}
+
+/* MESSAGE LAYOUT */
+.message-layout {
+  display: flex;
+  height: 100%;
+}
+
+/* CHAT LIST */
+.chat-list {
+  width: 250px;
+  border-right: 1px solid #ccc;
+  padding: 10px;
+}
+
+.chat-list input {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 10px;
+}
+
+.chat-item {
+  padding: 10px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.chat-item:hover {
+  background: #ddd;
+}
+
+/* CHAT AREA */
+.chat-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-header {
+  height: 60px;
+  border-bottom: 1px solid #ccc;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 15px;
+}
+
+/* CHAT BODY */
+.chat-body {
+  flex: 1;
+  padding: 15px;
+  overflow-y: auto;
+  background: #fafafa;
+}
+
+/* CHAT INFO */
+.chat-info {
+  width: 250px;
+  border-left: 1px solid #ccc;
+  padding: 10px;
+}
+
+/* CARD */
+.card {
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  margin: 10px 0;
+}
+
+/* PROFILE POPUP */
+#profile-popup {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+#profile-popup.active {
+  display: flex;
+}
+
+.popup-content {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  width: 300px;
+}
+
+.popup-content .close {
+  float: right;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+/* CHAT INPUT */
+.chat-input {
+  display: flex;
+  border-top: 1px solid #ccc;
+  padding: 10px;
+  background: white;
+}
+
+.chat-input input {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 20px;
   border: 1px solid #ccc;
+  outline: none;
+}
+
+.chat-input input:focus {
+  border-color: #4f8cff;
+}
+
+.chat-input button {
+  margin-left: 10px;
+  border-radius: 20px;
+  border: none;
+  padding: 10px 16px;
+  cursor: pointer;
+  background: #4f8cff;
+  color: white;
+}
+
+.chat-input button:hover {
+  opacity: 0.9;
+}
+
+/* =========================
+   MESSAGE SYSTEM
+   ========================= */
+
+.message {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 10px;
+  max-width: 100%;
+}
+
+/* alignment */
+.message.me {
+  align-items: flex-end;
+}
+
+.message.other {
+  align-items: flex-start;
+}
+
+/* username on top */
+.message .username {
+  font-size: 12px;
+  font-weight: bold;
+  color: #555;
+  margin-bottom: 4px;
+}
+
+/* hide my username */
+.message.me .username {
+  display: none;
+}
+
+/* message bubble */
+.message .bubble {
+  max-width: 60%;
+  padding: 10px;
+  border-radius: 10px;
+
+  /* IMPORTANT: prevent overflow */
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* my message */
+.message.me .bubble {
+  background: #4f8cff;
+  color: white;
+  border-bottom-right-radius: 0;
+}
+
+/* other message */
+.message.other .bubble {
+  background: #ffffff;
+  border-bottom-left-radius: 0;
+}
+
+/* time */
+.message .time {
+  font-size: 11px;
+  color: gray;
+  margin-top: 2px;
+  opacity: 0.6;
+}
+
+/* =========================
+   GROUP MESSAGE (DISCORD STYLE)
+   ========================= */
+
+.message.continuous {
+  margin-top: 2px;
+}
+
+.message.continuous .username {
+  display: none;
+}
+
+/* =========================
+   EXTRA UI
+   ========================= */
+
+.timestamp {
+  text-align: center;
+  font-size: 12px;
+  color: #777;
+  margin: 15px 0;
+}
+
+.typing {
+  font-style: italic;
+  color: #666;
+  margin: 10px;
 }

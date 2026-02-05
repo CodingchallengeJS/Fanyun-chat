@@ -1,18 +1,99 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Fanyun chat</title>
+  <title>Web Chat</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="chat">
-    <ul id="messages"></ul>
-    <input id="input" placeholder="Type message..." />
-    <button onclick="send()">Send</button>
-  </div>
 
-  <script src="http://localhost:8000/socket.io/socket.io.js"></script>
-  <script src="script.js"></script>
+<div class="app">
+
+  <!-- LEFT NAV -->
+  <aside class="sidebar">
+    <div class="nav-top">
+      <button onclick="showPage('home')">🏠</button>
+      <button onclick="showPage('message')">💬</button>
+      <button onclick="showPage('contact')">👥</button>
+    </div>
+
+    <div class="nav-bottom">
+      <button onclick="toggleProfile()">👤</button>
+      <button>⚙️</button>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="content">
+
+    <!-- HOME -->
+    <section id="home" class="page active">
+      <h2>News Feed</h2>
+      <p>(Blank – you will implement later)</p>
+    </section>
+
+    <!-- MESSAGE -->
+    <section id="message" class="page">
+      <div class="message-layout">
+
+        <!-- CONTACT LIST -->
+        <div class="chat-list">
+          <input placeholder="Search..." />
+          <div class="chat-item">Alice</div>
+          <div class="chat-item">Bob</div>
+        </div>
+
+        <!-- CHAT AREA -->
+        <div class="chat-area">
+          <div class="chat-header">
+            <span>Alice</span>
+            <div class="chat-actions">
+              📞 🎥 ⋯
+            </div>
+          </div>
+          <div class="chat-body" id="chat-body"></div>
+
+          <div class="chat-input">
+            <input id="chat-input" placeholder="Type a message..." />
+            <button onclick="sendMessage()" style="width: 15%;">Send</button>
+          </div>
+
+        </div>
+
+        <!-- INFO PANEL -->
+        <div class="chat-info">
+          <h3>Chat Info</h3>
+          <button>Search message</button>
+          <p>Recent images</p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- CONTACT -->
+    <section id="contact" class="page">
+      <h2>Friend Requests</h2>
+      <div class="card">John (Accept / Reject)</div>
+
+      <h2>Friends</h2>
+      <div class="card">Alice</div>
+      <div class="card">Bob</div>
+    </section>
+
+  </main>
+</div>
+
+<!-- PROFILE POPUP -->
+<div id="profile-popup">
+  <div class="popup-content">
+    <button class="close" onclick="toggleProfile()">✖</button>
+    <h3>My Profile</h3>
+    <p>Name: Your Name</p>
+    <p>Email: example@mail.com</p>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="script.js"></script>
 </body>
 </html>
