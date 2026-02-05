@@ -163,7 +163,7 @@ html, body {
   display: flex;
   border-top: 1px solid #ccc;
   padding: 10px;
-  background: white;
+  background: whitesmoke;
 }
 
 .chat-input input {
