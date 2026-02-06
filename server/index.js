@@ -17,13 +17,24 @@ io.on("connection", socket => {
         const message = {
             user: data.user,
             text: data.text,
-            time: new Date().toLocaleTimeString()
+            timestamp: data.timestamp || Date.now()
         };
-
+        console.log(message.time);
         // gửi cho tất cả
         io.emit("receive-message", message);
     });
 
+    socket.on("typing", data => {
+        socket.broadcast.emit("user-typing", data);
+    });
+
+    socket.on("stop-typing", data => {
+        socket.broadcast.emit("user-stop-typing", data);
+    });
+
+    socket.on("message-seen", data => {
+        socket.broadcast.emit("message-seen", data);
+    });
     socket.on("disconnect", () => {
         console.log("User disconnected:", socket.id);
     });
