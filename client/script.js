@@ -53,6 +53,12 @@ function sendMessage() {
   chatInput.value = "";
 }
 
+document.addEventListener("click", () => {
+  document
+    .querySelectorAll(".message.show-time")
+    .forEach(m => m.classList.remove("show-time"));
+});
+
 chatInput.addEventListener("keydown", e => {
   if (e.key === "Enter") sendMessage();
 });
@@ -99,17 +105,23 @@ function renderMessage(msg) {
     messageEl.appendChild(usernameEl);
   }
 
+// Create a wrapper for the bubble and time
+  const bubbleWrapper = document.createElement("div");
+  bubbleWrapper.className = "bubble-wrapper";
+
   // bubble
   const bubble = document.createElement("div");
   bubble.className = "bubble";
   bubble.textContent = msg.text;
-  messageEl.appendChild(bubble);
+  bubbleWrapper.appendChild(bubble); // Append bubble to the wrapper
 
   // time
   const timeEl = document.createElement("div");
   timeEl.className = "time";
   timeEl.textContent = formatTime(msg.timestamp);
-  messageEl.appendChild(timeEl);
+  bubbleWrapper.appendChild(timeEl); // Append time to the wrapper
+
+  messageEl.appendChild(bubbleWrapper); // Append the wrapper to the main message element
 
   if (isMe) {
     const status = document.createElement("div");
@@ -134,15 +146,16 @@ function renderMessage(msg) {
     lastMessage.user === msg.user &&
     msg.timestamp - lastMessage.time < GROUP_TIME
   ) {
-    const lastTime = chatBody.querySelector(
-      ".message:last-child .time"
-    );
     const status = chatBody.querySelector(
       ".message:last-child .status"
     );
-    if (lastTime) lastTime.style.display = "none";
     if (status) status.style.display = "none";
   }
+
+  messageEl.addEventListener("click", e => {
+    e.stopPropagation();
+    messageEl.classList.toggle("show-time");
+  });
 
   chatBody.appendChild(messageEl);
   chatBody.scrollTop = chatBody.scrollHeight;

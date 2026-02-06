@@ -1,27 +1,45 @@
+// server/index.js
+
 const path = require("path");
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
+const cors = require("cors");
 
 const app = express();
-const server = http.createServer(app);
-const io = new Server(server);
+app.use(cors());
 
-// serve frontend
-app.use(express.static(path.join(__dirname, "../client")));
+const server = http.createServer(app);
+
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:5173", // Or your client's port
+    methods: ["GET", "POST"]
+  }
+});
 
 io.on("connection", socket => {
     console.log("User connected:", socket.id);
 
+    // When a user sends a message
     socket.on("send-message", data => {
+        // Create a rich message object
         const message = {
+            id: `${socket.id}-${Date.now()}`, // Create a unique ID
             user: data.user,
             text: data.text,
-            timestamp: data.timestamp || Date.now()
+            timestamp: data.timestamp || Date.now(),
+            status: 'sent' // Start with a 'sent' status
         };
-        console.log(message.time);
-        // gửi cho tất cả
+        
+        // Send the complete message object to all clients
         io.emit("receive-message", message);
+    });
+
+    // When a message is seen by another user
+    socket.on("message-seen", data => {
+        // Broadcast to everyone that a specific message's status has changed
+        io.emit("message-status-changed", { id: data.id, status: 'seen' });
     });
 
     socket.on("typing", data => {
@@ -31,10 +49,7 @@ io.on("connection", socket => {
     socket.on("stop-typing", data => {
         socket.broadcast.emit("user-stop-typing", data);
     });
-
-    socket.on("message-seen", data => {
-        socket.broadcast.emit("message-seen", data);
-    });
+    
     socket.on("disconnect", () => {
         console.log("User disconnected:", socket.id);
     });
