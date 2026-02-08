@@ -1,13 +1,58 @@
 // server/index.js
 
+require('dotenv').config(); 
 const path = require("path");
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
+const bcrypt = require('bcrypt'); // 1. Import bcrypt
+const db = require('./db'); // 2. Import your database module
 
 const app = express();
 app.use(cors());
+app.use(express.json());
+
+app.post('/api/register', async (req, res) => {
+  const { username, email, password } = req.body;
+  console.log("received a create account request: " + req.body);
+  // Basic validation
+  if (!username || !email || !password) {
+    return res.status(400).json({ message: 'Username, email, and password are required.' });
+  }
+
+  try {
+    // 4. Hash the password before storing it
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
+
+    // 5. Save the new user to the database
+    const newUserQuery = `
+      INSERT INTO accounts (username, email, password_hash)
+      VALUES ($1, $2, $3)
+      RETURNING id, username, email, created_at;
+    `;
+    const values = [username, email, passwordHash];
+    
+    const { rows } = await db.query(newUserQuery, values);
+    const newUser = rows[0];
+
+    // Send a success response
+    res.status(201).json({ 
+      message: 'User created successfully!',
+      user: newUser
+    });
+
+  } catch (error) {
+    // Handle potential errors, like a duplicate username or email
+    if (error.code === '23505') { // PostgreSQL unique violation error code
+      return res.status(409).json({ message: 'Username or email already exists.' });
+    }
+    
+    console.error('Registration error:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+});
 
 const server = http.createServer(app);
 

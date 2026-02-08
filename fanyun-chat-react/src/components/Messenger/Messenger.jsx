@@ -1,25 +1,21 @@
-// src/components/Messenger/Messenger.jsx
-
 import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
-
-// --- VERIFY THESE IMPORTS ---
-// These paths should now be relative to the current folder
-import Message from './Message'; 
+import Message from './Message';
 import DateDivider from './DateDivider';
-// --- END OF UPDATES ---
+import ContactList from './ContactList'; // 1. Import the new component
 
 const socket = io("http://localhost:8000");
 const GROUP_TIME = 2 * 60 * 1000;
 
 function Messenger() {
-  // ... rest of your component code remains exactly the same
-  // No other changes are needed in this file
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
+  // 2. Add state for the currently active chat
+  const [activeContact, setActiveContact] = useState({ name: 'Alice' }); 
   const chatBodyRef = useRef(null);
   const username = useRef("User-" + Math.floor(Math.random() * 1000)).current;
 
+  // ... (all your useEffect and other functions remain the same)
   useEffect(() => {
     // === LISTENERS SETUP ===
     const onReceiveMessage = (newMessage) => {
@@ -45,7 +41,7 @@ function Messenger() {
       socket.off('receive-message', onReceiveMessage);
       socket.off('message-status-changed', onStatusChanged);
     };
-  }, [username]); // Rerun effect if username were to change
+  }, [username]);
 
   useEffect(() => {
     if (chatBodyRef.current) {
@@ -71,15 +67,17 @@ function Messenger() {
   return (
     <section id="message" className="page active">
       <div className="message-layout">
-        <div className="chat-list">
-          {/* ... */}
-        </div>
+        {/* 3. Replace the old div with the new component */}
+        <ContactList onContactSelect={setActiveContact} />
+
         <div className="chat-area">
           <div className="chat-header">
-            <span>Global Chat</span>
+            {/* 4. Make the header dynamic */}
+            <span>{activeContact.name}</span> 
             <div className="chat-actions">📞 🎥 ⋯</div>
           </div>
           <div className="chat-body" ref={chatBodyRef}>
+            {/* ... (message rendering logic) ... */}
             {messages.map((msg, index) => {
               const prevMsg = messages[index - 1];
 
@@ -114,11 +112,15 @@ function Messenger() {
             <button onClick={sendMessage} style={{ width: '15%' }}>Send</button>
           </div>
         </div>
+
         <div className="chat-info">
-          {/* ... */}
+          <h3>Chat Info</h3>
+          <button>Search message</button>
+          <p>Recent images</p>
         </div>
       </div>
     </section>
   );
 }
+
 export default Messenger;

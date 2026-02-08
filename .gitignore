@@ -3,3 +3,5 @@ node_modules/
 
 # Lock file
 package-lock.json
+
+server/.env

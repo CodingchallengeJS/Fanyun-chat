@@ -351,3 +351,64 @@ html, body {
   text-align: right;
   margin-top: 2px;
 }
+
+/* SEARCH BAR in Contact List */
+.chat-list .search-bar {
+  padding: 10px;
+  border-bottom: 1px solid #ccc;
+}
+
+.chat-list .search-bar input {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 18px;
+  border: 1px solid #ddd;
+  outline: none;
+  background: #f0f2f5;
+}
+
+.chat-list .search-bar input:focus {
+  border-color: #4f8cff;
+}
+
+/* CONTACT ITEM STYLING */
+.chat-item {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f2f5;
+}
+
+.chat-item:hover {
+  background: #f5f6fa;
+}
+
+/* Style for the currently active chat item */
+.chat-item.active {
+  background: #e6f0ff;
+}
+
+.chat-item .avatar {
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  margin-right: 12px;
+  object-fit: cover;
+}
+
+.contact-details {
+  overflow: hidden; /* Important for text truncation */
+}
+
+.contact-name {
+  font-weight: bold;
+}
+
+.contact-last-message {
+  font-size: 14px;
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
