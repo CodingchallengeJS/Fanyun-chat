@@ -1,7 +1,7 @@
 import React from 'react';
 
-// Pass functions from App to handle state changes
-function Sidebar({ onPageChange, onToggleProfile, onToggleSettings }) {
+// Accept onLogout from props
+function Sidebar({ onPageChange, onToggleProfile, onToggleSettings, onLogout }) {
   return (
     <aside className="sidebar">
       <div className="nav-top">

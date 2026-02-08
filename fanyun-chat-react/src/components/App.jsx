@@ -1,49 +1,36 @@
-// src/components/App.jsx
-
 import React, { useState } from 'react';
-
-// --- UPDATE THESE IMPORTS ---
-import Sidebar from './Sidebar'; // This path is unchanged
-import Home from './Home/Home'; // Updated path
-import Messenger from './Messenger/Messenger'; // Updated path
-import Contact from './Contact/Contact'; // Updated path
-import Profile from './Profile/Profile'; // Updated path
-import Setting from './Setting/Setting'; // Updated path
-// --- END OF UPDATES ---
+import LoginPage from '../pages/LoginPage';
+import AppLayout from '../layouts/AppLayout';
 
 function App() {
-  const [activePage, setActivePage] = useState('home');
-  const [isProfileOpen, setProfileOpen] = useState(false);
-  const [isSettingsOpen, setSettingsOpen] = useState(false);
+  const [user, setUser] = useState(null); // null means not logged in
 
-  const renderPage = () => {
-    switch (activePage) {
-      case 'message':
-        return <Messenger />;
-      case 'contact':
-        return <Contact />;
-      case 'home':
-      default:
-        return <Home />;
-    }
+  const handleLoginSuccess = (userData) => {
+    setUser(userData);
   };
 
-  return (
-    <div className="app">
-      <Sidebar
-        onPageChange={setActivePage}
-        onToggleProfile={() => setProfileOpen(!isProfileOpen)}
-        onToggleSettings={() => setSettingsOpen(!isSettingsOpen)}
-      />
+  const handleGuestLogin = () => {
+    // Create a temporary guest user object
+    const guestUser = {
+      username: `Guest-${Math.floor(Math.random() * 1000)}`,
+      isGuest: true
+    };
+    setUser(guestUser);
+  };
+  
+  const handleLogout = () => {
+    setUser(null);
+  };
 
-      <main className="content">
-        {renderPage()}
-      </main>
+  // Conditionally render based on the user state
+  if (!user) {
+    return <LoginPage 
+      onLoginSuccess={handleLoginSuccess} 
+      onGuestLogin={handleGuestLogin} 
+    />;
+  }
 
-      <Profile isActive={isProfileOpen} onClose={() => setProfileOpen(false)} />
-      <Setting isActive={isSettingsOpen} onClose={() => setSettingsOpen(false)} />
-    </div>
-  );
+  return <AppLayout user={user} onLogout={handleLogout} />;
 }
 
 export default App;

@@ -18,7 +18,7 @@ html, body {
 /* SIDEBAR */
 .sidebar {
   width: 70px;
-  background: #1f2a40;
+  background: #364970;
   color: white;
   display: flex;
   flex-direction: column;
@@ -36,7 +36,7 @@ html, body {
 }
 
 .sidebar button:hover {
-  background: #2e3b5e;
+  background: #24262b;
 }
 
 .nav-top,
@@ -70,7 +70,7 @@ html, body {
 
 /* CHAT LIST */
 .chat-list {
-  width: 250px;
+  width: 280px;
   border-right: 1px solid #ccc;
   padding: 10px;
 }
@@ -118,7 +118,7 @@ html, body {
 
 /* CHAT INFO */
 .chat-info {
-  width: 250px;
+  width: 300px;
   border-left: 1px solid #ccc;
   padding: 10px;
 }
@@ -411,4 +411,154 @@ html, body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.no-results {
+  padding: 20px;
+  text-align: center;
+  color: #888;
+  font-size: 14px;
+}
+
+/* === LOGIN PAGE STYLES === */
+.login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background-color: #f0f2f5;
+}
+
+.login-container {
+  padding: 40px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  width: 100%;
+  max-width: 400px;
+}
+
+.login-container h1 {
+  margin-bottom: 24px;
+}
+
+.login-container form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.login-container input {
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 16px;
+}
+
+.login-container button {
+  padding: 12px;
+  background: #4f8cff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.login-options {
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #888;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: #4f8cff;
+  cursor: pointer;
+  padding: 0;
+  font-size: 14px;
+}
+
+/* === MODAL STYLES === */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  padding: 30px;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 400px;
+  position: relative;
+}
+
+.modal-content h2 {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.modal-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.modal-content form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+/* Error and Success Messages */
+.error-message {
+  color: #d93025;
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+.success-message {
+  color: #1e8e3e;
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+/* Setting & Log out */
+
+.setting-actions {
+  margin-top: 25px;
+  border-top: 1px solid #eee;
+  padding-top: 15px;
+  text-align: center;
+}
+
+.logout-button {
+  width: 100%;
+  padding: 10px;
+  background-color: #d93025; /* A standard red for important actions */
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.logout-button:hover {
+  background-color: #c5221f;
 }

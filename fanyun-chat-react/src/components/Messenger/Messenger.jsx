@@ -7,20 +7,19 @@ import ContactList from './ContactList'; // 1. Import the new component
 const socket = io("http://localhost:8000");
 const GROUP_TIME = 2 * 60 * 1000;
 
-function Messenger() {
+function Messenger({ currentUser }) {
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
-  // 2. Add state for the currently active chat
-  const [activeContact, setActiveContact] = useState({ name: 'Alice' }); 
+  const [activeContact, setActiveContact] = useState({ name: 'Global Chat' }); 
   const chatBodyRef = useRef(null);
-  const username = useRef("User-" + Math.floor(Math.random() * 1000)).current;
 
-  // ... (all your useEffect and other functions remain the same)
+  // 2. REMOVE the random username generator. We will use the prop instead.
+  // const username = useRef("User-" + Math.floor(Math.random() * 1000)).current;
+
   useEffect(() => {
-    // === LISTENERS SETUP ===
     const onReceiveMessage = (newMessage) => {
-      // If the message is from another user, emit a 'seen' event
-      if (newMessage.user !== username) {
+      // 3. Use the prop for checking incoming messages
+      if (newMessage.user !== currentUser.username) {
         socket.emit('message-seen', { id: newMessage.id });
       }
       setMessages((prevMessages) => [...prevMessages, newMessage]);
@@ -41,7 +40,8 @@ function Messenger() {
       socket.off('receive-message', onReceiveMessage);
       socket.off('message-status-changed', onStatusChanged);
     };
-  }, [username]);
+    // Add currentUser.username to the dependency array
+  }, [currentUser.username]); 
 
   useEffect(() => {
     if (chatBodyRef.current) {
@@ -52,7 +52,7 @@ function Messenger() {
   const sendMessage = () => {
     if (inputValue.trim()) {
       socket.emit("send-message", {
-        user: username,
+        user: currentUser.username, 
         text: inputValue,
         timestamp: Date.now()
       });
@@ -95,7 +95,7 @@ function Messenger() {
                   {showDateDivider && <DateDivider timestamp={msg.timestamp} />}
                   <Message
                     msg={msg}
-                    username={username}
+                    username={currentUser.username}
                     isContinuous={isContinuous}
                   />
                 </React.Fragment>

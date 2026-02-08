@@ -1,14 +1,23 @@
+// src/components/Profile/Profile.jsx
+
 import React from 'react';
 
-function Profile({ isActive, onClose }) {
-  // Use the `isActive` prop to conditionally apply the 'active' class
+// Accept the 'user' object as a prop
+function Profile({ isActive, onClose, user }) {
+  if (!isActive) return null;
+
+  // Determine what to display based on the user prop
+  const displayName = user && !user.isGuest ? user.username : 'Guest';
+  const displayEmail = user && !user.isGuest ? user.email : 'Not logged in';
+
   return (
     <div id="profile-popup" className={isActive ? 'active' : ''}>
       <div className="popup-content">
         <button className="close" onClick={onClose}>✖</button>
         <h3>My Profile</h3>
-        <p>Name: Your Name</p>
-        <p>Email: example@mail.com</p>
+        {/* Use the dynamic variables here */}
+        <p>Name: {displayName}</p>
+        <p>Email: {displayEmail}</p>
       </div>
     </div>
   );
