@@ -1,0 +1,82 @@
+ok you can ignore the client folder(it is the old version when i haven't implemented react yet), the fanyun-chat-react folder is new "client" folder, as normal i run node index.js on server/ and then npm run dev on fanyun-chat-react
+now i want to implement more about database, last time i implemented basic login
+now i updated my fanyun_chat schema, it contain these table(for both chat and posts)
+accounts (
+  id SERIAL PRIMARY KEY,
+  username TEXT UNIQUE,
+  email TEXT UNIQUE,
+  password_hash TEXT,
+  avatar_url TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+)
+
+conversations (
+  id SERIAL PRIMARY KEY,
+  type TEXT CHECK (type IN ('direct', 'group')),
+  title TEXT,            -- tên group (NULL với direct)
+  avatar_url TEXT,       -- avatar group
+  created_by INT REFERENCES accounts(id),
+  created_at TIMESTAMP DEFAULT NOW()
+)
+
+conversation_members (
+  conversation_id INT REFERENCES conversations(id),
+  user_id INT REFERENCES accounts(id),
+  role TEXT CHECK (role IN ('owner', 'admin', 'member')),
+  joined_at TIMESTAMP DEFAULT NOW(),
+
+  PRIMARY KEY (conversation_id, user_id)
+)
+
+posts (
+  id SERIAL PRIMARY KEY,
+  author_id INT REFERENCES accounts(id),
+  content TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+)
+
+messages (
+  id SERIAL PRIMARY KEY,
+  conversation_id INT REFERENCES conversations(id),
+  sender_id INT REFERENCES accounts(id),
+  content TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+)
+
+reaction_types (
+  id SMALLINT PRIMARY KEY,
+  name TEXT UNIQUE --like/love/haha/wow/sad/angry
+)
+
+reactions (
+  user_id INT REFERENCES accounts(id),
+  target_type TEXT CHECK (target_type IN ('post', 'message')),
+  target_id INT,
+  reaction_type_id SMALLINT REFERENCES reaction_types(id),
+  created_at TIMESTAMP DEFAULT NOW(),
+
+  PRIMARY KEY (user_id, target_type, target_id)
+)
+
+post_reaction_counts (
+  post_id INT,
+  reaction_type_id SMALLINT,
+  count INT DEFAULT 0,
+  PRIMARY KEY (post_id, reaction_type_id)
+)
+
+message_reaction_counts (
+  message_id INT,
+  reaction_type_id SMALLINT,
+  count INT DEFAULT 0,
+
+  PRIMARY KEY (message_id, reaction_type_id)
+)
+
+message_seen (
+  message_id INT REFERENCES messages(id),
+  user_id INT REFERENCES accounts(id),
+  seen_at TIMESTAMP,
+
+  PRIMARY KEY (message_id, user_id)
+)
