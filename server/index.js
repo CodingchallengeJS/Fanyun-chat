@@ -14,6 +14,34 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+const GLOBAL_CHAT_TITLE = 'Global Chat';
+let globalConversationId = null;
+let globalConversationInit = null;
+
+async function getGlobalConversationId() {
+  if (globalConversationId) return globalConversationId;
+  if (!globalConversationInit) {
+    globalConversationInit = (async () => {
+      const existing = await db.query(
+        'SELECT id FROM conversations WHERE type = $1 AND title = $2 LIMIT 1',
+        ['group', GLOBAL_CHAT_TITLE]
+      );
+      if (existing.rows.length > 0) {
+        return existing.rows[0].id;
+      }
+      const created = await db.query(
+        `INSERT INTO conversations (type, title, avatar_url, created_by)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id`,
+        ['group', GLOBAL_CHAT_TITLE, null, null]
+      );
+      return created.rows[0].id;
+    })();
+  }
+  globalConversationId = await globalConversationInit;
+  return globalConversationId;
+}
+
 app.post('/api/register', async (req, res) => {
   const { username, email, password } = req.body;
   console.log("received a create account request: " + req.body);
@@ -101,6 +129,37 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+app.get('/api/conversations/global/messages', async (req, res) => {
+  const limitRaw = req.query.limit;
+  const limit = Number.isInteger(Number(limitRaw)) ? Math.max(1, Math.min(500, Number(limitRaw))) : 200;
+  try {
+    const conversationId = await getGlobalConversationId();
+    const { rows } = await db.query(
+      `SELECT m.id, m.content, m.created_at, a.username, a.id AS user_id
+       FROM messages m
+       JOIN accounts a ON a.id = m.sender_id
+       WHERE m.conversation_id = $1
+       ORDER BY m.created_at ASC
+       LIMIT $2`,
+      [conversationId, limit]
+    );
+
+    const messages = rows.map(row => ({
+      id: row.id,
+      user: row.username,
+      userId: row.user_id,
+      text: row.content,
+      timestamp: new Date(row.created_at).getTime(),
+      status: 'sent'
+    }));
+
+    res.status(200).json({ messages });
+  } catch (error) {
+    console.error('Fetch messages error:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
 const server = http.createServer(app);
 
 const io = new Server(server, {
@@ -114,17 +173,48 @@ io.on("connection", socket => {
     console.log("User connected:", socket.id);
 
     // When a user sends a message
-    socket.on("send-message", data => {
-        // Create a rich message object
+    socket.on("send-message", async data => {
+        const text = (data && data.text ? String(data.text) : '').trim();
+        const username = data && data.user ? String(data.user) : 'Unknown';
+        const userId = data && data.userId ? Number(data.userId) : null;
+
+        if (!text) {
+          return;
+        }
+
+        try {
+          if (userId) {
+            const conversationId = await getGlobalConversationId();
+            const { rows } = await db.query(
+              `INSERT INTO messages (conversation_id, sender_id, content)
+               VALUES ($1, $2, $3)
+               RETURNING id, created_at`,
+              [conversationId, userId, text]
+            );
+            const saved = rows[0];
+            const message = {
+              id: saved.id,
+              user: username,
+              userId,
+              text,
+              timestamp: new Date(saved.created_at).getTime(),
+              status: 'sent'
+            };
+            io.emit("receive-message", message);
+            return;
+          }
+        } catch (error) {
+          console.error('Save message error:', error);
+        }
+
+        // Fallback: emit without persisting (e.g., guest users)
         const message = {
-            id: `${socket.id}-${Date.now()}`, // Create a unique ID
-            user: data.user,
-            text: data.text,
-            timestamp: data.timestamp || Date.now(),
-            status: 'sent' // Start with a 'sent' status
+          id: `${socket.id}-${Date.now()}`,
+          user: username,
+          text,
+          timestamp: data && data.timestamp ? data.timestamp : Date.now(),
+          status: 'sent'
         };
-        
-        // Send the complete message object to all clients
         io.emit("receive-message", message);
     });
 

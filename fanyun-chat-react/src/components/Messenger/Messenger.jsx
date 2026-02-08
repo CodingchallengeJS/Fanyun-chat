@@ -44,6 +44,37 @@ function Messenger({ currentUser }) {
   }, [currentUser.username]); 
 
   useEffect(() => {
+    let isActive = true;
+
+    const loadMessages = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/conversations/global/messages');
+        const data = await response.json();
+        if (!response.ok) {
+          return;
+        }
+        if (!isActive) return;
+
+        const incoming = Array.isArray(data.messages) ? data.messages : [];
+        setMessages(prev => {
+          const byId = new Map();
+          prev.forEach(m => byId.set(m.id, m));
+          incoming.forEach(m => byId.set(m.id, m));
+          return Array.from(byId.values()).sort((a, b) => a.timestamp - b.timestamp);
+        });
+      } catch {
+        // Ignore load errors for now
+      }
+    };
+
+    loadMessages();
+
+    return () => {
+      isActive = false;
+    };
+  }, [currentUser.id, currentUser.username]);
+
+  useEffect(() => {
     if (chatBodyRef.current) {
       chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
     }
@@ -53,6 +84,7 @@ function Messenger({ currentUser }) {
     if (inputValue.trim()) {
       socket.emit("send-message", {
         user: currentUser.username, 
+        userId: currentUser.id,
         text: inputValue,
         timestamp: Date.now()
       });
