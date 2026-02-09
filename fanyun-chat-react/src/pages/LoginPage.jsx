@@ -34,9 +34,7 @@ function LoginPage({ onLoginSuccess, onGuestLogin }) {
   return (
     <div className="login-page">
       <div className="login-container">
-        <h1>Welcome to Fanyun Chat</h1>
-        <h2>Fast and light app for your best experience</h2>
-        <h3>.</h3>
+        <h1 className="app-title">Fanyun Chat</h1>
         <form onSubmit={handleLogin}>
           <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
           <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required />
@@ -44,9 +42,13 @@ function LoginPage({ onLoginSuccess, onGuestLogin }) {
           {error && <p className="error-message">{error}</p>}
         </form>
         <div className="login-options">
-          <button className="link-button" onClick={() => setRegisterOpen(true)}>Create a new account</button>
+          <span>Don't have an account?</span>
+          <a className="link-button" onClick={() => setRegisterOpen(true)}>Register</a>
+          <span>now!</span>
+        </div>
+        <div className="login-options">
           <span>or</span>
-          <button className="link-button" onClick={onGuestLogin}>Continue as Guest</button>
+          <a className="link-button" onClick={onGuestLogin}>Continue as Guest</a>
         </div>
       </div>
       <RegisterModal isOpen={isRegisterOpen} onClose={() => setRegisterOpen(false)} />

@@ -3,7 +3,8 @@ import React from 'react';
 // Helper function to format time
 const formatTime = (ts) => {
   const d = new Date(ts);
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const vietnamTime = new Date(d.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+  return vietnamTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
 // isContinuous prop is added here
