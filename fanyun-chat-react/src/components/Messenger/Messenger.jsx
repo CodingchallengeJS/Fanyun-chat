@@ -4,7 +4,7 @@ import Message from './Message';
 import DateDivider from './DateDivider';
 import ContactList from './ContactList'; // 1. Import the new component
 
-const socket = io("http://localhost:8000");
+const socket = io(import.meta.env.VITE_API_URL);
 const GROUP_TIME = 2 * 60 * 1000;
 
 function Messenger({ currentUser }) {
@@ -48,7 +48,7 @@ function Messenger({ currentUser }) {
 
     const loadMessages = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/conversations/global/messages');
+        const response = await fetch('${import.meta.env.VITE_API_URL}/api/conversations/global/messages');
         const data = await response.json();
         if (!response.ok) {
           return;
