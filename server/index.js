@@ -164,7 +164,10 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173", // Or your client's port
+    origin: [
+      "http://localhost:5173",
+      "https://fanyun-chat.vercel.app/"
+    ], // Or your client's port
     methods: ["GET", "POST"]
   }
 });
