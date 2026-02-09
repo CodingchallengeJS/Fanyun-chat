@@ -48,7 +48,7 @@ function Messenger({ currentUser }) {
 
     const loadMessages = async () => {
       try {
-        const response = await fetch('${import.meta.env.VITE_API_URL}/api/conversations/global/messages');
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/conversations/global/messages`);
         const data = await response.json();
         if (!response.ok) {
           return;
