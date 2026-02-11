@@ -109,13 +109,53 @@ html, body {
   padding: 0 15px;
 }
 
-/* CHAT BODY */
+.chat-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-action-btn {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #5f6672;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.1s ease;
+}
+
+.chat-action-btn:hover {
+  background: #eef2ff;
+  color: #2f57d8;
+}
+
+.chat-action-btn:active {
+  background: #dbe4ff;
+  transform: scale(0.95);
+}
+
+.chat-action-btn.active {
+  background: #dbe4ff;
+  color: #2f57d8;
+}
+
+.chat-action-btn:focus-visible {
+  outline: 2px solid #4f8cff;
+  outline-offset: 2px;
+}
+
+
 .chat-body {
   flex: 1;
   padding: 15px;
   overflow-y: auto;
   position: relative;
-  background: #fafafa;
+  background: #f8f8f8;
 }
 
 /* CHAT INFO */
@@ -570,3 +610,4 @@ html, body {
 .app-title {
   color:#3b327d;
 }
+
