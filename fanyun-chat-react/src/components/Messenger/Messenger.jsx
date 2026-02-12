@@ -104,6 +104,19 @@ function Messenger({ currentUser }) {
     setChatInfoOpen((prev) => !prev);
   };
 
+  const dateGroups = messages.reduce((groups, msg) => {
+    const dateKey = new Date(msg.timestamp).toDateString();
+    const lastGroup = groups[groups.length - 1];
+
+    if (!lastGroup || lastGroup.dateKey !== dateKey) {
+      groups.push({ dateKey, messages: [msg] });
+    } else {
+      lastGroup.messages.push(msg);
+    }
+
+    return groups;
+  }, []);
+
   return (
     <section id="message" className="page active">
       <div className="message-layout">
@@ -142,28 +155,27 @@ function Messenger({ currentUser }) {
           </div>
 
           <div className="chat-body" ref={chatBodyRef}>
-            {messages.map((msg, index) => {
-              const prevMsg = messages[index - 1];
-              const showDateDivider =
-                !prevMsg ||
-                new Date(msg.timestamp).toDateString() !== new Date(prevMsg.timestamp).toDateString();
+            {dateGroups.map((group) => (
+              <div className="date-group" key={group.dateKey}>
+                <DateDivider timestamp={group.messages[0].timestamp} />
+                {group.messages.map((msg, index) => {
+                  const prevMsg = group.messages[index - 1];
+                  const isContinuous =
+                    prevMsg &&
+                    prevMsg.user === msg.user &&
+                    (msg.timestamp - prevMsg.timestamp) < GROUP_TIME;
 
-              const isContinuous =
-                prevMsg &&
-                prevMsg.user === msg.user &&
-                (msg.timestamp - prevMsg.timestamp) < GROUP_TIME;
-
-              return (
-                <React.Fragment key={msg.id}>
-                  {showDateDivider && <DateDivider timestamp={msg.timestamp} />}
-                  <Message
-                    msg={msg}
-                    username={currentUser.username}
-                    isContinuous={isContinuous}
-                  />
-                </React.Fragment>
-              );
-            })}
+                  return (
+                    <Message
+                      key={msg.id}
+                      msg={msg}
+                      username={currentUser.username}
+                      isContinuous={isContinuous}
+                    />
+                  );
+                })}
+              </div>
+            ))}
           </div>
 
           <div className="chat-input">
