@@ -8,11 +8,18 @@ const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
 const bcrypt = require('bcrypt'); // 1. Import bcrypt
+const { v2: cloudinary } = require('cloudinary');
 const db = require('./db'); // 2. Import your database module
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 const GLOBAL_CHAT_TITLE = 'Global Chat';
 let globalConversationId = null;
@@ -511,7 +518,8 @@ app.post('/api/login', async (req, res) => {
       user: {
         id: user.id,
         username: user.username,
-        email: user.email
+        email: user.email,
+        avatarUrl: user.avatar_url || null
       },
       token // Send the token to the client
     });
@@ -519,6 +527,44 @@ app.post('/api/login', async (req, res) => {
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
+app.post('/api/users/:id/avatar', async (req, res) => {
+  const userId = Number(req.params.id);
+  const imageData = typeof req.body.imageData === 'string' ? req.body.imageData : '';
+
+  if (!userId || !imageData) {
+    return res.status(400).json({ message: 'user id and imageData are required.' });
+  }
+
+  if (!imageData.startsWith('data:image/')) {
+    return res.status(400).json({ message: 'Invalid image format.' });
+  }
+
+  if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+    return res.status(500).json({ message: 'Cloudinary is not configured on server.' });
+  }
+
+  try {
+    const accountResult = await db.query('SELECT id FROM accounts WHERE id = $1 LIMIT 1', [userId]);
+    if (accountResult.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    const uploadResult = await cloudinary.uploader.upload(imageData, {
+      folder: 'fanyun-chat',
+      resource_type: 'image',
+      public_id: `avatar-${userId}-${Date.now()}`
+    });
+
+    const avatarUrl = uploadResult.secure_url || uploadResult.url;
+    await db.query('UPDATE accounts SET avatar_url = $1 WHERE id = $2', [avatarUrl, userId]);
+
+    return res.status(200).json({ avatarUrl });
+  } catch (error) {
+    console.error('Avatar upload error:', error);
+    return res.status(500).json({ message: 'Failed to upload avatar.' });
   }
 });
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import ContactItem from './ContactItem';
+import defaultAvatar from '../../assets/default-avatar.svg';
 
 const GLOBAL_CHAT_ID = 'global-chat-01';
 
@@ -26,7 +27,7 @@ function ContactList({ onContactSelect, currentUser, preselectedContact }) {
         const incoming = Array.isArray(data.conversations) ? data.conversations : [];
         const normalized = incoming.map((item) => ({
           ...item,
-          avatar: item.avatarUrl || `https://i.pravatar.cc/150?u=${item.id}`
+          avatar: item.avatarUrl || defaultAvatar
         }));
 
         setContacts((prev) => {
@@ -72,7 +73,7 @@ function ContactList({ onContactSelect, currentUser, preselectedContact }) {
         const next = [
           {
             ...preselectedContact,
-            avatar: `https://i.pravatar.cc/150?u=${preselectedContact.id}`,
+            avatar: preselectedContact.avatarUrl || defaultAvatar,
             lastMessage: preselectedContact.lastMessage || 'No messages yet.'
           },
           ...prev

@@ -22,6 +22,13 @@ function App() {
     setUser(null);
   };
 
+  const handleUserUpdate = (patch) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      return { ...prev, ...patch };
+    });
+  };
+
   // Conditionally render based on the user state
   if (!user) {
     return <LoginPage 
@@ -30,7 +37,7 @@ function App() {
     />;
   }
 
-  return <AppLayout user={user} onLogout={handleLogout} />;
+  return <AppLayout user={user} onLogout={handleLogout} onUserUpdate={handleUserUpdate} />;
 }
 
 export default App;

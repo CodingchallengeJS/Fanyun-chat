@@ -7,7 +7,7 @@ import Profile from '../components/Profile/Profile';
 import Setting from '../components/Setting/Setting';
 
 // This component contains the main UI of your application
-function AppLayout({ user, onLogout }) {
+function AppLayout({ user, onLogout, onUserUpdate }) {
   const [activePage, setActivePage] = useState('home');
   const [isProfileOpen, setProfileOpen] = useState(false);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
@@ -41,7 +41,12 @@ function AppLayout({ user, onLogout }) {
             {renderPage()}
         </main>
 
-        <Profile isActive={isProfileOpen} onClose={() => setProfileOpen(false)} user={user} />
+        <Profile
+            isActive={isProfileOpen}
+            onClose={() => setProfileOpen(false)}
+            user={user}
+            onUserUpdate={onUserUpdate}
+        />
         <Setting
             isActive={isSettingsOpen}
             onClose={() => setSettingsOpen(false)}
