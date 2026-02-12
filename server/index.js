@@ -18,6 +18,38 @@ const GLOBAL_CHAT_TITLE = 'Global Chat';
 let globalConversationId = null;
 let globalConversationInit = null;
 
+async function ensureSocialTables() {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS friendships (
+      user_id INT REFERENCES accounts(id),
+      friend_id INT REFERENCES accounts(id),
+      status TEXT CHECK (status IN ('pending', 'accepted')) DEFAULT 'accepted',
+      requested_by INT REFERENCES accounts(id),
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW(),
+      PRIMARY KEY (user_id, friend_id),
+      CHECK (user_id < friend_id)
+    );
+  `);
+}
+
+function normalizeFriendPair(a, b) {
+  const x = Number(a);
+  const y = Number(b);
+  return x < y ? [x, y] : [y, x];
+}
+
+async function getAcceptedFriendIds(userId) {
+  const uid = Number(userId);
+  const { rows } = await db.query(
+    `SELECT CASE WHEN user_id = $1 THEN friend_id ELSE user_id END AS friend_id
+     FROM friendships
+     WHERE (user_id = $1 OR friend_id = $1) AND status = 'accepted'`,
+    [uid]
+  );
+  return rows.map((row) => Number(row.friend_id));
+}
+
 async function getGlobalConversationId() {
   if (globalConversationId) return globalConversationId;
   if (!globalConversationInit) {
@@ -41,6 +73,367 @@ async function getGlobalConversationId() {
   globalConversationId = await globalConversationInit;
   return globalConversationId;
 }
+
+app.post('/api/posts', async (req, res) => {
+  const authorId = Number(req.body.authorId);
+  const content = (req.body.content || '').trim();
+
+  if (!authorId || !content) {
+    return res.status(400).json({ message: 'authorId and content are required.' });
+  }
+
+  try {
+    const { rows } = await db.query(
+      `INSERT INTO posts (author_id, content)
+       VALUES ($1, $2)
+       RETURNING id, author_id, content, created_at`,
+      [authorId, content]
+    );
+
+    const inserted = rows[0];
+    const authorResult = await db.query(
+      'SELECT username, avatar_url FROM accounts WHERE id = $1',
+      [authorId]
+    );
+
+    res.status(201).json({
+      post: {
+        id: inserted.id,
+        content: inserted.content,
+        createdAt: inserted.created_at,
+        author: {
+          id: inserted.author_id,
+          username: authorResult.rows[0]?.username || 'Unknown',
+          avatarUrl: authorResult.rows[0]?.avatar_url || null
+        },
+        isFriend: false
+      }
+    });
+  } catch (error) {
+    console.error('Create post error:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
+app.get('/api/feed', async (req, res) => {
+  const viewerId = Number(req.query.viewerId);
+  const limitRaw = Number(req.query.limit);
+  const limit = Number.isInteger(limitRaw) ? Math.max(1, Math.min(100, limitRaw)) : 30;
+
+  if (!viewerId) {
+    return res.status(400).json({ message: 'viewerId is required.' });
+  }
+
+  try {
+    const friendIds = await getAcceptedFriendIds(viewerId);
+    const friendLimit = friendIds.length > 0 ? Math.max(10, Math.floor(limit * 0.75)) : 0;
+    const strangerLimit = friendIds.length > 0 ? Math.max(3, limit - friendLimit) : limit;
+    const friendIdSet = new Set(friendIds);
+    let friendPosts = [];
+    let strangerPosts = [];
+
+    if (friendIds.length > 0) {
+      const friendResult = await db.query(
+        `SELECT p.id, p.content, p.created_at, a.id AS author_id, a.username, a.avatar_url
+         FROM posts p
+         JOIN accounts a ON a.id = p.author_id
+         WHERE p.author_id = ANY($1::int[])
+         ORDER BY p.created_at DESC
+         LIMIT $2`,
+        [friendIds, friendLimit]
+      );
+      friendPosts = friendResult.rows;
+
+      const strangerResult = await db.query(
+        `SELECT p.id, p.content, p.created_at, a.id AS author_id, a.username, a.avatar_url
+         FROM posts p
+         JOIN accounts a ON a.id = p.author_id
+         WHERE p.author_id <> $1
+           AND NOT (p.author_id = ANY($2::int[]))
+         ORDER BY RANDOM()
+         LIMIT $3`,
+        [viewerId, friendIds, strangerLimit]
+      );
+      strangerPosts = strangerResult.rows;
+    } else {
+      const strangerOnlyResult = await db.query(
+        `SELECT p.id, p.content, p.created_at, a.id AS author_id, a.username, a.avatar_url
+         FROM posts p
+         JOIN accounts a ON a.id = p.author_id
+         WHERE p.author_id <> $1
+         ORDER BY p.created_at DESC
+         LIMIT $2`,
+        [viewerId, limit]
+      );
+      strangerPosts = strangerOnlyResult.rows;
+    }
+
+    const posts = [...friendPosts, ...strangerPosts]
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .slice(0, limit)
+      .map((row) => ({
+        id: row.id,
+        content: row.content,
+        createdAt: row.created_at,
+        author: {
+          id: row.author_id,
+          username: row.username,
+          avatarUrl: row.avatar_url
+        },
+        isFriend: friendIdSet.has(Number(row.author_id))
+      }));
+
+    res.status(200).json({
+      hasFriends: friendIds.length > 0,
+      posts
+    });
+  } catch (error) {
+    console.error('Fetch feed error:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
+app.get('/api/users/discovery', async (req, res) => {
+  const viewerId = Number(req.query.viewerId);
+  const query = (req.query.query || '').trim();
+
+  if (!viewerId) {
+    return res.status(400).json({ message: 'viewerId is required.' });
+  }
+
+  try {
+    if (!query) {
+      const { rows } = await db.query(
+        `SELECT a.id, a.username, a.email, a.avatar_url
+         FROM friendships f
+         JOIN accounts a
+           ON a.id = CASE WHEN f.user_id = $1 THEN f.friend_id ELSE f.user_id END
+         WHERE (f.user_id = $1 OR f.friend_id = $1)
+           AND f.status = 'accepted'
+         ORDER BY a.username ASC
+         LIMIT 50`,
+        [viewerId]
+      );
+
+      return res.status(200).json({
+        users: rows.map((row) => ({
+          id: row.id,
+          username: row.username,
+          email: row.email,
+          avatarUrl: row.avatar_url,
+          relation: 'friend'
+        }))
+      });
+    }
+
+    const searchTerm = `%${query}%`;
+    const candidatesResult = await db.query(
+      `SELECT id, username, email, avatar_url
+       FROM accounts
+       WHERE id <> $1
+         AND (username ILIKE $2 OR email ILIKE $2)
+       ORDER BY username ASC
+       LIMIT 50`,
+      [viewerId, searchTerm]
+    );
+    const candidates = candidatesResult.rows;
+
+    if (candidates.length === 0) {
+      return res.status(200).json({ users: [] });
+    }
+
+    const candidateIds = candidates.map((u) => u.id);
+    const relationResult = await db.query(
+      `SELECT user_id, friend_id, status
+       FROM friendships
+       WHERE (user_id = $1 AND friend_id = ANY($2::int[]))
+          OR (friend_id = $1 AND user_id = ANY($2::int[]))`,
+      [viewerId, candidateIds]
+    );
+
+    const relationMap = new Map();
+    relationResult.rows.forEach((row) => {
+      const otherId = row.user_id === viewerId ? row.friend_id : row.user_id;
+      relationMap.set(Number(otherId), row.status === 'accepted' ? 'friend' : 'pending');
+    });
+
+    const users = candidates
+      .map((row) => ({
+        id: row.id,
+        username: row.username,
+        email: row.email,
+        avatarUrl: row.avatar_url,
+        relation: relationMap.get(Number(row.id)) || 'none'
+      }))
+      .sort((a, b) => {
+        if (a.relation === b.relation) return a.username.localeCompare(b.username);
+        if (a.relation === 'friend') return -1;
+        if (b.relation === 'friend') return 1;
+        return a.username.localeCompare(b.username);
+      });
+
+    return res.status(200).json({ users });
+  } catch (error) {
+    console.error('User discovery error:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
+app.get('/api/users/:id/profile', async (req, res) => {
+  const targetUserId = Number(req.params.id);
+  const viewerId = Number(req.query.viewerId);
+
+  if (!targetUserId || !viewerId) {
+    return res.status(400).json({ message: 'target id and viewerId are required.' });
+  }
+
+  try {
+    const userResult = await db.query(
+      'SELECT id, username, email, avatar_url FROM accounts WHERE id = $1',
+      [targetUserId]
+    );
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    const isSelf = targetUserId === viewerId;
+    let friendshipStatus = isSelf ? 'self' : 'none';
+
+    if (!isSelf) {
+      const [u1, u2] = normalizeFriendPair(targetUserId, viewerId);
+      const friendshipResult = await db.query(
+        `SELECT status
+         FROM friendships
+         WHERE user_id = $1 AND friend_id = $2
+         LIMIT 1`,
+        [u1, u2]
+      );
+      if (friendshipResult.rows.length > 0) {
+        friendshipStatus = friendshipResult.rows[0].status === 'accepted' ? 'friend' : 'pending';
+      }
+    }
+
+    const postsResult = await db.query(
+      `SELECT id, content, created_at
+       FROM posts
+       WHERE author_id = $1
+       ORDER BY created_at DESC
+       LIMIT 50`,
+      [targetUserId]
+    );
+
+    return res.status(200).json({
+      user: {
+        id: userResult.rows[0].id,
+        username: userResult.rows[0].username,
+        email: userResult.rows[0].email,
+        avatarUrl: userResult.rows[0].avatar_url
+      },
+      friendshipStatus,
+      posts: postsResult.rows.map((row) => ({
+        id: row.id,
+        content: row.content,
+        createdAt: row.created_at
+      }))
+    });
+  } catch (error) {
+    console.error('Profile fetch error:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
+app.post('/api/friends/add', async (req, res) => {
+  const fromUserId = Number(req.body.fromUserId);
+  const toUserId = Number(req.body.toUserId);
+
+  if (!fromUserId || !toUserId) {
+    return res.status(400).json({ message: 'fromUserId and toUserId are required.' });
+  }
+  if (fromUserId === toUserId) {
+    return res.status(400).json({ message: 'Cannot add yourself.' });
+  }
+
+  try {
+    const [u1, u2] = normalizeFriendPair(fromUserId, toUserId);
+    await db.query(
+      `INSERT INTO friendships (user_id, friend_id, status, requested_by)
+       VALUES ($1, $2, 'accepted', $3)
+       ON CONFLICT (user_id, friend_id)
+       DO UPDATE SET status = 'accepted', requested_by = EXCLUDED.requested_by, updated_at = NOW()`,
+      [u1, u2, fromUserId]
+    );
+
+    res.status(200).json({ message: 'Friend added successfully.', status: 'friend' });
+  } catch (error) {
+    console.error('Add friend error:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
+app.post('/api/chats/direct', async (req, res) => {
+  const userId = Number(req.body.userId);
+  const targetUserId = Number(req.body.targetUserId);
+
+  if (!userId || !targetUserId) {
+    return res.status(400).json({ message: 'userId and targetUserId are required.' });
+  }
+  if (userId === targetUserId) {
+    return res.status(400).json({ message: 'Cannot create direct chat with yourself.' });
+  }
+
+  try {
+    const existingResult = await db.query(
+      `SELECT c.id
+       FROM conversations c
+       JOIN conversation_members cm ON cm.conversation_id = c.id
+       WHERE c.type = 'direct'
+         AND cm.user_id IN ($1, $2)
+       GROUP BY c.id
+       HAVING COUNT(DISTINCT cm.user_id) = 2
+       LIMIT 1`,
+      [userId, targetUserId]
+    );
+
+    let conversationId = existingResult.rows[0]?.id;
+
+    if (!conversationId) {
+      const created = await db.query(
+        `INSERT INTO conversations (type, title, avatar_url, created_by)
+         VALUES ('direct', NULL, NULL, $1)
+         RETURNING id`,
+        [userId]
+      );
+      conversationId = created.rows[0].id;
+
+      await db.query(
+        `INSERT INTO conversation_members (conversation_id, user_id, role)
+         VALUES ($1, $2, 'member'), ($1, $3, 'member')
+         ON CONFLICT DO NOTHING`,
+        [conversationId, userId, targetUserId]
+      );
+    }
+
+    const targetUser = await db.query(
+      'SELECT id, username, avatar_url FROM accounts WHERE id = $1 LIMIT 1',
+      [targetUserId]
+    );
+
+    return res.status(200).json({
+      conversation: {
+        id: conversationId,
+        type: 'direct',
+        contact: {
+          id: targetUser.rows[0]?.id || targetUserId,
+          name: targetUser.rows[0]?.username || 'Unknown',
+          avatarUrl: targetUser.rows[0]?.avatar_url || null
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Create/open direct chat error:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+});
 
 app.post('/api/register', async (req, res) => {
   const { username, email, password } = req.body;
@@ -160,6 +553,56 @@ app.get('/api/conversations/global/messages', async (req, res) => {
   }
 });
 
+app.get('/api/conversations/:id/messages', async (req, res) => {
+  const conversationId = Number(req.params.id);
+  const userId = Number(req.query.userId);
+  const limitRaw = req.query.limit;
+  const limit = Number.isInteger(Number(limitRaw)) ? Math.max(1, Math.min(500, Number(limitRaw))) : 200;
+
+  if (!conversationId || !userId) {
+    return res.status(400).json({ message: 'conversation id and userId are required.' });
+  }
+
+  try {
+    const membership = await db.query(
+      `SELECT 1
+       FROM conversation_members
+       WHERE conversation_id = $1 AND user_id = $2
+       LIMIT 1`,
+      [conversationId, userId]
+    );
+
+    if (membership.rows.length === 0) {
+      return res.status(403).json({ message: 'You are not a member of this conversation.' });
+    }
+
+    const { rows } = await db.query(
+      `SELECT m.id, m.content, m.created_at, a.username, a.id AS user_id
+       FROM messages m
+       JOIN accounts a ON a.id = m.sender_id
+       WHERE m.conversation_id = $1
+       ORDER BY m.created_at ASC
+       LIMIT $2`,
+      [conversationId, limit]
+    );
+
+    const messages = rows.map((row) => ({
+      id: row.id,
+      conversationId,
+      user: row.username,
+      userId: row.user_id,
+      text: row.content,
+      timestamp: new Date(row.created_at).getTime(),
+      status: 'sent'
+    }));
+
+    return res.status(200).json({ messages });
+  } catch (error) {
+    console.error('Fetch direct messages error:', error);
+    return res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
 const server = http.createServer(app);
 
 const io = new Server(server, {
@@ -181,6 +624,7 @@ io.on("connection", socket => {
         const text = (data && data.text ? String(data.text) : '').trim();
         const username = data && data.user ? String(data.user) : 'Unknown';
         const userId = data && data.userId ? Number(data.userId) : null;
+        const incomingConversationId = data && data.conversationId ? Number(data.conversationId) : null;
 
         if (!text) {
           return;
@@ -188,7 +632,22 @@ io.on("connection", socket => {
 
         try {
           if (userId) {
-            const conversationId = await getGlobalConversationId();
+            let conversationId = incomingConversationId;
+            if (!conversationId) {
+              conversationId = await getGlobalConversationId();
+            } else {
+              const membership = await db.query(
+                `SELECT 1
+                 FROM conversation_members
+                 WHERE conversation_id = $1 AND user_id = $2
+                 LIMIT 1`,
+                [conversationId, userId]
+              );
+              if (membership.rows.length === 0) {
+                return;
+              }
+            }
+
             const { rows } = await db.query(
               `INSERT INTO messages (conversation_id, sender_id, content)
                VALUES ($1, $2, $3)
@@ -204,6 +663,9 @@ io.on("connection", socket => {
               timestamp: new Date(saved.created_at).getTime(),
               status: 'sent'
             };
+            if (incomingConversationId) {
+              message.conversationId = conversationId;
+            }
             io.emit("receive-message", message);
             return;
           }
@@ -241,6 +703,14 @@ io.on("connection", socket => {
     });
 });
 
-server.listen(8000, () => {
+async function startServer() {
+  await ensureSocialTables();
+  server.listen(8000, () => {
     console.log("Server running at http://localhost:8000");
+  });
+}
+
+startServer().catch((error) => {
+  console.error('Startup error:', error);
+  process.exit(1);
 });

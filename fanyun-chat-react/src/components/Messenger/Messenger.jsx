@@ -6,16 +6,33 @@ import ContactList from './ContactList';
 
 const socket = io(import.meta.env.VITE_API_URL);
 const GROUP_TIME = 2 * 60 * 1000;
+const GLOBAL_CONTACT = { id: 'global-chat-01', name: 'Global Chat', type: 'group' };
 
-function Messenger({ currentUser }) {
+function Messenger({ currentUser, preselectedContact }) {
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
-  const [activeContact, setActiveContact] = useState({ name: 'Global Chat' });
+  const [activeContact, setActiveContact] = useState(preselectedContact || GLOBAL_CONTACT);
   const [isChatInfoOpen, setChatInfoOpen] = useState(true);
   const chatBodyRef = useRef(null);
+  const isDirectConversation = activeContact?.type === 'direct' && Boolean(activeContact?.conversationId);
+
+  useEffect(() => {
+    if (preselectedContact?.id) {
+      setActiveContact(preselectedContact);
+    }
+  }, [preselectedContact]);
 
   useEffect(() => {
     const onReceiveMessage = (newMessage) => {
+      const incomingIsDirect = Boolean(newMessage.conversationId);
+      if (isDirectConversation) {
+        if (Number(newMessage.conversationId) !== Number(activeContact.conversationId)) {
+          return;
+        }
+      } else if (incomingIsDirect) {
+        return;
+      }
+
       if (newMessage.user !== currentUser.username) {
         socket.emit('message-seen', { id: newMessage.id });
       }
@@ -37,14 +54,18 @@ function Messenger({ currentUser }) {
       socket.off('receive-message', onReceiveMessage);
       socket.off('message-status-changed', onStatusChanged);
     };
-  }, [currentUser.username]);
+  }, [activeContact?.conversationId, currentUser.username, isDirectConversation]);
 
   useEffect(() => {
     let isActive = true;
 
     const loadMessages = async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/conversations/global/messages`);
+        const endpoint = isDirectConversation
+          ? `${import.meta.env.VITE_API_URL}/api/conversations/${activeContact.conversationId}/messages?userId=${currentUser.id}`
+          : `${import.meta.env.VITE_API_URL}/api/conversations/global/messages`;
+
+        const response = await fetch(endpoint);
         const data = await response.json();
         if (!response.ok) {
           return;
@@ -52,12 +73,7 @@ function Messenger({ currentUser }) {
         if (!isActive) return;
 
         const incoming = Array.isArray(data.messages) ? data.messages : [];
-        setMessages((prev) => {
-          const byId = new Map();
-          prev.forEach((m) => byId.set(m.id, m));
-          incoming.forEach((m) => byId.set(m.id, m));
-          return Array.from(byId.values()).sort((a, b) => a.timestamp - b.timestamp);
-        });
+        setMessages(incoming.sort((a, b) => a.timestamp - b.timestamp));
       } catch {
         // Ignore load errors for now
       }
@@ -68,7 +84,7 @@ function Messenger({ currentUser }) {
     return () => {
       isActive = false;
     };
-  }, [currentUser.id, currentUser.username]);
+  }, [activeContact?.conversationId, currentUser.id, currentUser.username, isDirectConversation]);
 
   useEffect(() => {
     if (chatBodyRef.current) {
@@ -82,7 +98,8 @@ function Messenger({ currentUser }) {
         user: currentUser.username,
         userId: currentUser.id,
         text: inputValue,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        conversationId: isDirectConversation ? activeContact.conversationId : null
       });
       setInputValue('');
     }

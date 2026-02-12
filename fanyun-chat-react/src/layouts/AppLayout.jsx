@@ -8,17 +8,23 @@ import Setting from '../components/Setting/Setting';
 
 // This component contains the main UI of your application
 function AppLayout({ user, onLogout }) {
-  const [activePage, setActivePage] = useState('message');
+  const [activePage, setActivePage] = useState('home');
   const [isProfileOpen, setProfileOpen] = useState(false);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
+  const [chatTarget, setChatTarget] = useState(null);
+
+  const handleOpenChatFromHome = (contact) => {
+    setChatTarget(contact);
+    setActivePage('message');
+  };
 
   const renderPage = () => {
     switch (activePage) {
       case 'contact': return <Contact />;
-      case 'home': return <Home />;
+      case 'home': return <Home currentUser={user} onOpenChat={handleOpenChatFromHome} />;
       case 'message':
       default:
-        return <Messenger currentUser={user} />;
+        return <Messenger currentUser={user} preselectedContact={chatTarget} />;
     }
   };
 
@@ -36,12 +42,10 @@ function AppLayout({ user, onLogout }) {
         </main>
 
         <Profile isActive={isProfileOpen} onClose={() => setProfileOpen(false)} user={user} />
-        <Setting isActive={isSettingsOpen} onClose={() => setSettingsOpen(false)} />
-
-        <Setting 
-            isActive={isSettingsOpen} 
-            onClose={() => setSettingsOpen(false)} 
-            onLogout={onLogout} 
+        <Setting
+            isActive={isSettingsOpen}
+            onClose={() => setSettingsOpen(false)}
+            onLogout={onLogout}
         />
     </div>
   );
