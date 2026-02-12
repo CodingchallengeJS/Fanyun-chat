@@ -810,12 +810,12 @@ html, body {
   border: none;
   background: transparent;
   padding: 0;
-  width: 56px;
-  height: 56px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   overflow: hidden;
   cursor: pointer;
-  flex: 0 0 56px;
+  flex: 0 0 52px;
 }
 
 .feed-post-avatar {
