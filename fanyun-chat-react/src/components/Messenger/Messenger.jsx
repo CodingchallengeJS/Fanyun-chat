@@ -137,7 +137,11 @@ function Messenger({ currentUser, preselectedContact }) {
   return (
     <section id="message" className="page active">
       <div className="message-layout">
-        <ContactList onContactSelect={setActiveContact} />
+        <ContactList
+          onContactSelect={setActiveContact}
+          currentUser={currentUser}
+          preselectedContact={preselectedContact}
+        />
 
         <div className="chat-area">
           <div className="chat-header">

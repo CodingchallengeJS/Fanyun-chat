@@ -522,6 +522,85 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+app.get('/api/conversations', async (req, res) => {
+  const userId = Number(req.query.userId);
+
+  if (!userId) {
+    return res.status(400).json({ message: 'userId is required.' });
+  }
+
+  try {
+    const conversationId = await getGlobalConversationId();
+    const globalLastMessageResult = await db.query(
+      `SELECT m.content, m.created_at, a.username
+       FROM messages m
+       JOIN accounts a ON a.id = m.sender_id
+       WHERE m.conversation_id = $1
+       ORDER BY m.created_at DESC
+       LIMIT 1`,
+      [conversationId]
+    );
+
+    const directResult = await db.query(
+      `SELECT
+         c.id AS conversation_id,
+         c.created_at AS conversation_created_at,
+         a.id AS contact_id,
+         a.username AS contact_username,
+         a.avatar_url AS contact_avatar_url,
+         lm.content AS last_message,
+         lm.created_at AS last_message_at
+       FROM conversations c
+       JOIN conversation_members cms
+         ON cms.conversation_id = c.id AND cms.user_id = $1
+       JOIN conversation_members cmo
+         ON cmo.conversation_id = c.id AND cmo.user_id <> $1
+       JOIN accounts a
+         ON a.id = cmo.user_id
+       LEFT JOIN LATERAL (
+         SELECT m.content, m.created_at
+         FROM messages m
+         WHERE m.conversation_id = c.id
+         ORDER BY m.created_at DESC
+         LIMIT 1
+       ) lm ON TRUE
+       WHERE c.type = 'direct'
+       ORDER BY COALESCE(lm.created_at, c.created_at) DESC
+       LIMIT 100`,
+      [userId]
+    );
+
+    const globalLast = globalLastMessageResult.rows[0];
+    const conversations = [
+      {
+        id: 'global-chat-01',
+        type: 'group',
+        conversationId,
+        name: GLOBAL_CHAT_TITLE,
+        avatarUrl: null,
+        lastMessage: globalLast
+          ? `${globalLast.username}: ${globalLast.content}`
+          : 'Welcome to the chat!',
+        updatedAt: globalLast?.created_at || null
+      },
+      ...directResult.rows.map((row) => ({
+        id: `direct-${row.conversation_id}`,
+        type: 'direct',
+        conversationId: row.conversation_id,
+        name: row.contact_username,
+        avatarUrl: row.contact_avatar_url,
+        lastMessage: row.last_message || 'No messages yet.',
+        updatedAt: row.last_message_at || row.conversation_created_at
+      }))
+    ];
+
+    return res.status(200).json({ conversations });
+  } catch (error) {
+    console.error('Fetch conversations error:', error);
+    return res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
 app.get('/api/conversations/global/messages', async (req, res) => {
   const limitRaw = req.query.limit;
   const limit = Number.isInteger(Number(limitRaw)) ? Math.max(1, Math.min(500, Number(limitRaw))) : 200;
