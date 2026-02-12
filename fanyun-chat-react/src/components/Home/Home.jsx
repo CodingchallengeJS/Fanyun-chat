@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import defaultAvatar from '../../assets/default-avatar.svg';
 
 function formatDateTime(ts) {
   const d = new Date(ts);
@@ -227,9 +228,28 @@ function Home({ currentUser, onOpenChat }) {
             {posts.map((post) => (
               <article className="feed-post" key={post.id}>
                 <header className="feed-post-header">
-                  <div className="feed-post-author">{post.author?.username || 'Unknown'}</div>
-                  <div className="feed-post-meta">
-                    {post.isFriend ? 'Friend' : 'Suggested'} | {formatDateTime(post.createdAt)}
+                  <button
+                    type="button"
+                    className="feed-post-avatar-btn"
+                    onClick={() => loadProfile(post.author?.id)}
+                    disabled={!post.author?.id}
+                    aria-label={`Open ${post.author?.username || 'user'} profile`}
+                  >
+                    <img
+                      src={post.author?.avatarUrl || defaultAvatar}
+                      alt={`${post.author?.username || 'User'} avatar`}
+                      className="feed-post-avatar"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = defaultAvatar;
+                      }}
+                    />
+                  </button>
+                  <div className="feed-post-header-text">
+                    <div className="feed-post-author">{post.author?.username || 'Unknown'}</div>
+                    <div className="feed-post-meta">
+                      {post.isFriend ? 'Friend' : 'Suggested'} | {formatDateTime(post.createdAt)}
+                    </div>
                   </div>
                 </header>
                 <p className="feed-post-content">{post.content}</p>
@@ -261,13 +281,49 @@ function Home({ currentUser, onOpenChat }) {
                 className="home-contact-item"
                 onClick={() => loadProfile(contact.id)}
               >
-                <div className="home-contact-main">
-                  <span className="home-contact-name">{contact.username}</span>
-                  {contact.relation === 'friend' && <span className="home-contact-tag">Friend</span>}
+                <img
+                  src={contact.avatarUrl || defaultAvatar}
+                  alt={`${contact.username} avatar`}
+                  className="home-contact-avatar"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = defaultAvatar;
+                  }}
+                />
+                <div className="home-contact-details">
+                  <div className="home-contact-main">
+                    <span className="home-contact-name">{contact.username}</span>
+                    {contact.relation === 'friend' && <span className="home-contact-tag">Friend</span>}
+                  </div>
+                  <span className="home-contact-email">{contact.email}</span>
                 </div>
-                <span className="home-contact-email">{contact.email}</span>
               </button>
             ))}
+          </div>
+
+          <div className="home-contact-self-section">
+            <button
+              type="button"
+              className="home-contact-item home-contact-item-self"
+              onClick={() => loadProfile(currentUser?.id)}
+              disabled={!currentUser?.id}
+            >
+              <img
+                src={currentUser?.avatarUrl || defaultAvatar}
+                alt={`${currentUser?.username || 'My'} avatar`}
+                className="home-contact-avatar"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = defaultAvatar;
+                }}
+              />
+              <div className="home-contact-details">
+                <div className="home-contact-main">
+                  <span className="home-contact-name">{currentUser?.username || 'Me'}</span>
+                </div>
+                <span className="home-contact-email">{currentUser?.email || ''}</span>
+              </div>
+            </button>
           </div>
         </aside>
       </div>

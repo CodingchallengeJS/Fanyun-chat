@@ -63,7 +63,7 @@ function Profile({ isActive, onClose, user, onUserUpdate }) {
     <div id="profile-popup" className={isActive ? 'active' : ''}>
       <div className="popup-content profile-popup-card">
         <button className="close" onClick={onClose} aria-label="Close profile">
-          x
+          ✖
         </button>
 
         <button
