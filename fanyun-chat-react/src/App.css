@@ -1014,11 +1014,13 @@ html, body {
 .profile-modal {
   width: min(640px, 92vw);
   max-height: 86vh;
-  overflow-y: auto;
+  overflow: hidden;
   background: #fff;
   border-radius: 12px;
   padding: 18px;
   position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 .profile-modal-close {
@@ -1038,13 +1040,41 @@ html, body {
 
 .profile-modal h3 {
   color: #1f2738;
-  margin-bottom: 12px;
+  margin-bottom: 4px;
+}
+
+.profile-modal-top {
+  border-bottom: 1px solid #e2e7f0;
+  padding: 8px 8px 14px;
+  text-align: center;
+}
+
+.profile-modal-avatar {
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  margin: 0 auto 10px;
+}
+
+.profile-modal-email {
+  color: #667085;
+  margin-bottom: 10px;
 }
 
 .profile-modal-actions {
   display: flex;
   gap: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 0;
+  justify-content: center;
+}
+
+.profile-posts-scroll {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding-top: 12px;
 }
 
 .profile-btn {

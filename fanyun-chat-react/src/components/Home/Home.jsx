@@ -338,38 +338,53 @@ function Home({ currentUser, onOpenChat }) {
             {profileError && <div className="profile-modal-error">{profileError}</div>}
             {!profileLoading && profileData && (
               <>
-                <h3>{profileData.user.username}</h3>
-                <div className="profile-modal-actions">
-                  {!isProfileSelf && (
-                    <button
-                      type="button"
-                      className="profile-btn primary"
-                      onClick={handleAddFriend}
-                      disabled={isAddingFriend || isFriend}
-                    >
-                      {isFriend ? 'Already Friends' : (isAddingFriend ? 'Adding...' : 'Add Friend')}
-                    </button>
-                  )}
-                  {!isProfileSelf && (
-                    <button
-                      type="button"
-                      className="profile-btn"
-                      onClick={handleOpenChat}
-                      disabled={isOpeningChat}
-                    >
-                      {isOpeningChat ? 'Opening...' : 'Message'}
-                    </button>
-                  )}
+                <div className="profile-modal-top">
+                  <img
+                    src={profileData.user.avatarUrl || defaultAvatar}
+                    alt={`${profileData.user.username} avatar`}
+                    className="profile-modal-avatar"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = defaultAvatar;
+                    }}
+                  />
+                  <h3>{profileData.user.username}</h3>
+                  <p className="profile-modal-email">{profileData.user.email || ''}</p>
+                  <div className="profile-modal-actions">
+                    {!isProfileSelf && (
+                      <button
+                        type="button"
+                        className="profile-btn primary"
+                        onClick={handleAddFriend}
+                        disabled={isAddingFriend || isFriend}
+                      >
+                        {isFriend ? 'Already Friends' : (isAddingFriend ? 'Adding...' : 'Add Friend')}
+                      </button>
+                    )}
+                    {!isProfileSelf && (
+                      <button
+                        type="button"
+                        className="profile-btn"
+                        onClick={handleOpenChat}
+                        disabled={isOpeningChat}
+                      >
+                        {isOpeningChat ? 'Opening...' : 'Message'}
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div className="profile-posts">
-                  <h4>Posts</h4>
-                  {profileData.posts.length === 0 && <p>No posts yet.</p>}
-                  {profileData.posts.map((post) => (
-                    <article key={post.id} className="profile-post-item">
-                      <div className="profile-post-date">{formatDateTime(post.createdAt)}</div>
-                      <p>{post.content}</p>
-                    </article>
-                  ))}
+
+                <div className="profile-posts-scroll">
+                  <div className="profile-posts">
+                    <h4>Posts</h4>
+                    {profileData.posts.length === 0 && <p>No posts yet.</p>}
+                    {profileData.posts.map((post) => (
+                      <article key={post.id} className="profile-post-item">
+                        <div className="profile-post-date">{formatDateTime(post.createdAt)}</div>
+                        <p>{post.content}</p>
+                      </article>
+                    ))}
+                  </div>
                 </div>
               </>
             )}
