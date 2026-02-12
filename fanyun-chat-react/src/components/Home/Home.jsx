@@ -12,7 +12,7 @@ function formatDateTime(ts) {
   });
 }
 
-function Home({ currentUser, onOpenChat }) {
+function Home({ currentUser, onOpenProfile }) {
   const apiBase = import.meta.env.VITE_API_URL;
   const [composerText, setComposerText] = useState('');
   const [isPosting, setPosting] = useState(false);
@@ -24,13 +24,6 @@ function Home({ currentUser, onOpenChat }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [contactLoading, setContactLoading] = useState(false);
   const [contacts, setContacts] = useState([]);
-
-  const [selectedUserId, setSelectedUserId] = useState(null);
-  const [profileLoading, setProfileLoading] = useState(false);
-  const [profileData, setProfileData] = useState(null);
-  const [profileError, setProfileError] = useState('');
-  const [isAddingFriend, setAddingFriend] = useState(false);
-  const [isOpeningChat, setOpeningChat] = useState(false);
 
   const searchLabel = useMemo(() => {
     if (!searchTerm.trim()) return 'Friends';
@@ -75,27 +68,6 @@ function Home({ currentUser, onOpenChat }) {
     }
   };
 
-  const loadProfile = async (targetUserId) => {
-    if (!targetUserId || !currentUser?.id) return;
-    setSelectedUserId(targetUserId);
-    setProfileData(null);
-    setProfileLoading(true);
-    setProfileError('');
-    try {
-      const response = await fetch(`${apiBase}/api/users/${targetUserId}/profile?viewerId=${currentUser.id}`);
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to load profile.');
-      }
-      setProfileData(data);
-    } catch (err) {
-      setProfileError(err.message);
-      setProfileData(null);
-    } finally {
-      setProfileLoading(false);
-    }
-  };
-
   useEffect(() => {
     loadFeed();
     loadContacts('');
@@ -132,66 +104,6 @@ function Home({ currentUser, onOpenChat }) {
       setPosting(false);
     }
   };
-
-  const handleAddFriend = async () => {
-    if (!profileData?.user?.id || !currentUser?.id) return;
-    setAddingFriend(true);
-    try {
-      const response = await fetch(`${apiBase}/api/friends/add`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fromUserId: currentUser.id,
-          toUserId: profileData.user.id
-        })
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to add friend.');
-      }
-      setProfileData((prev) => (prev ? { ...prev, friendshipStatus: 'friend' } : prev));
-      loadContacts(searchTerm);
-      loadFeed();
-    } catch (err) {
-      setProfileError(err.message);
-    } finally {
-      setAddingFriend(false);
-    }
-  };
-
-  const handleOpenChat = async () => {
-    if (!profileData?.user?.id || !currentUser?.id || !onOpenChat) return;
-    setOpeningChat(true);
-    try {
-      const response = await fetch(`${apiBase}/api/chats/direct`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: currentUser.id,
-          targetUserId: profileData.user.id
-        })
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to open chat.');
-      }
-
-      const conversation = data.conversation;
-      onOpenChat({
-        id: `direct-${conversation.id}`,
-        type: 'direct',
-        conversationId: conversation.id,
-        name: conversation.contact?.name || profileData.user.username
-      });
-    } catch (err) {
-      setProfileError(err.message);
-    } finally {
-      setOpeningChat(false);
-    }
-  };
-
-  const isProfileSelf = profileData?.friendshipStatus === 'self';
-  const isFriend = profileData?.friendshipStatus === 'friend';
 
   return (
     <section id="home" className="page active">
@@ -231,7 +143,7 @@ function Home({ currentUser, onOpenChat }) {
                   <button
                     type="button"
                     className="feed-post-avatar-btn"
-                    onClick={() => loadProfile(post.author?.id)}
+                    onClick={() => onOpenProfile?.(post.author?.id)}
                     disabled={!post.author?.id}
                     aria-label={`Open ${post.author?.username || 'user'} profile`}
                   >
@@ -279,7 +191,7 @@ function Home({ currentUser, onOpenChat }) {
                 key={contact.id}
                 type="button"
                 className="home-contact-item"
-                onClick={() => loadProfile(contact.id)}
+                onClick={() => onOpenProfile?.(contact.id)}
               >
                 <img
                   src={contact.avatarUrl || defaultAvatar}
@@ -305,7 +217,7 @@ function Home({ currentUser, onOpenChat }) {
             <button
               type="button"
               className="home-contact-item home-contact-item-self"
-              onClick={() => loadProfile(currentUser?.id)}
+              onClick={() => onOpenProfile?.(currentUser?.id)}
               disabled={!currentUser?.id}
             >
               <img
@@ -327,70 +239,6 @@ function Home({ currentUser, onOpenChat }) {
           </div>
         </aside>
       </div>
-
-      {selectedUserId && (
-        <div className="profile-modal-overlay" onClick={() => setSelectedUserId(null)}>
-          <div className="profile-modal" onClick={(e) => e.stopPropagation()}>
-            <button type="button" className="profile-modal-close" onClick={() => setSelectedUserId(null)}>
-              x
-            </button>
-            {profileLoading && <div className="profile-modal-loading">Loading profile...</div>}
-            {profileError && <div className="profile-modal-error">{profileError}</div>}
-            {!profileLoading && profileData && (
-              <>
-                <div className="profile-modal-top">
-                  <img
-                    src={profileData.user.avatarUrl || defaultAvatar}
-                    alt={`${profileData.user.username} avatar`}
-                    className="profile-modal-avatar"
-                    onError={(e) => {
-                      e.currentTarget.onerror = null;
-                      e.currentTarget.src = defaultAvatar;
-                    }}
-                  />
-                  <h3>{profileData.user.username}</h3>
-                  <p className="profile-modal-email">{profileData.user.email || ''}</p>
-                  <div className="profile-modal-actions">
-                    {!isProfileSelf && (
-                      <button
-                        type="button"
-                        className="profile-btn primary"
-                        onClick={handleAddFriend}
-                        disabled={isAddingFriend || isFriend}
-                      >
-                        {isFriend ? 'Already Friends' : (isAddingFriend ? 'Adding...' : 'Add Friend')}
-                      </button>
-                    )}
-                    {!isProfileSelf && (
-                      <button
-                        type="button"
-                        className="profile-btn"
-                        onClick={handleOpenChat}
-                        disabled={isOpeningChat}
-                      >
-                        {isOpeningChat ? 'Opening...' : 'Message'}
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="profile-posts-scroll">
-                  <div className="profile-posts">
-                    <h4>Posts</h4>
-                    {profileData.posts.length === 0 && <p>No posts yet.</p>}
-                    {profileData.posts.map((post) => (
-                      <article key={post.id} className="profile-post-item">
-                        <div className="profile-post-date">{formatDateTime(post.createdAt)}</div>
-                        <p>{post.content}</p>
-                      </article>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
     </section>
   );
 }

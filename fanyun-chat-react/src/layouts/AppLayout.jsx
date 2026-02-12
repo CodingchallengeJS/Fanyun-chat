@@ -12,16 +12,31 @@ function AppLayout({ user, onLogout, onUserUpdate }) {
   const [isProfileOpen, setProfileOpen] = useState(false);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
   const [chatTarget, setChatTarget] = useState(null);
+  const [profileTargetUserId, setProfileTargetUserId] = useState(user?.id || null);
 
   const handleOpenChatFromHome = (contact) => {
     setChatTarget(contact);
     setActivePage('message');
   };
 
+  const handleOpenProfile = (targetUserId) => {
+    if (!targetUserId) return;
+    setProfileTargetUserId(targetUserId);
+    setProfileOpen(true);
+  };
+
+  const handleToggleProfile = () => {
+    if (isProfileOpen) {
+      setProfileOpen(false);
+      return;
+    }
+    handleOpenProfile(user?.id);
+  };
+
   const renderPage = () => {
     switch (activePage) {
       case 'contact': return <Contact />;
-      case 'home': return <Home currentUser={user} onOpenChat={handleOpenChatFromHome} />;
+      case 'home': return <Home currentUser={user} onOpenProfile={handleOpenProfile} />;
       case 'message':
       default:
         return <Messenger currentUser={user} preselectedContact={chatTarget} />;
@@ -33,7 +48,7 @@ function AppLayout({ user, onLogout, onUserUpdate }) {
       {/* We can pass onLogout to the sidebar to add a logout button */}
         <Sidebar
             onPageChange={setActivePage}
-            onToggleProfile={() => setProfileOpen(!isProfileOpen)}
+            onToggleProfile={handleToggleProfile}
             onToggleSettings={() => setSettingsOpen(!isSettingsOpen)}
         />
 
@@ -46,6 +61,8 @@ function AppLayout({ user, onLogout, onUserUpdate }) {
             onClose={() => setProfileOpen(false)}
             user={user}
             onUserUpdate={onUserUpdate}
+            targetUserId={profileTargetUserId}
+            onOpenChat={handleOpenChatFromHome}
         />
         <Setting
             isActive={isSettingsOpen}

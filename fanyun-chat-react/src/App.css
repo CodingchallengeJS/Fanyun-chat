@@ -192,13 +192,27 @@ html, body {
   padding: 20px;
   border-radius: 10px;
   width: 300px;
+  position: relative;
 }
 
 .popup-content .close {
-  float: right;
-  background: none;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
   border: none;
+  background: #eff2f8;
+  color: #1d2535;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
   cursor: pointer;
+}
+
+.popup-content .close:hover {
+  background: #e5eaf4;
 }
 
 .profile-popup-card {
@@ -654,10 +668,20 @@ html, body {
   position: absolute;
   top: 10px;
   right: 10px;
-  background: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: #eff2f8;
+  color: #1d2535;
   border: none;
-  font-size: 20px;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
   cursor: pointer;
+}
+
+.modal-close:hover {
+  background: #e5eaf4;
 }
 
 .modal-content form {
