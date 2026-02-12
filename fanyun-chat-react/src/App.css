@@ -740,8 +740,8 @@ html, body {
 .home-layout {
   height: 100%;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 12px;
 }
 
 .home-feed-column {
