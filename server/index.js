@@ -38,6 +38,38 @@ async function ensureSocialTables() {
       CHECK (user_id < friend_id)
     );
   `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS comments (
+      id SERIAL PRIMARY KEY,
+      post_id INT REFERENCES posts(id) ON DELETE CASCADE,
+      author_id INT REFERENCES accounts(id),
+      content TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS idx_comments_post_created
+      ON comments(post_id, created_at ASC);
+  `);
+
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS idx_reactions_target
+      ON reactions(target_type, target_id);
+  `);
+
+  await db.query(`
+    INSERT INTO reaction_types (id, name)
+    VALUES
+      (1, 'like'),
+      (2, 'love'),
+      (3, 'haha'),
+      (4, 'wow'),
+      (5, 'sad'),
+      (6, 'angry')
+    ON CONFLICT (id) DO NOTHING;
+  `);
 }
 
 function normalizeFriendPair(a, b) {
@@ -55,6 +87,50 @@ async function getAcceptedFriendIds(userId) {
     [uid]
   );
   return rows.map((row) => Number(row.friend_id));
+}
+
+async function loadPostInteractionSnapshot(postIds, viewerId) {
+  if (!Array.isArray(postIds) || postIds.length === 0) {
+    return { reactionCountByPost: new Map(), commentCountByPost: new Map(), viewerReactionByPost: new Map() };
+  }
+
+  const reactionCountResult = await db.query(
+    `SELECT target_id::int AS post_id, COUNT(*)::int AS count
+     FROM reactions
+     WHERE target_type = 'post' AND target_id = ANY($1::int[])
+     GROUP BY target_id`,
+    [postIds]
+  );
+
+  const commentCountResult = await db.query(
+    `SELECT post_id::int, COUNT(*)::int AS count
+     FROM comments
+     WHERE post_id = ANY($1::int[])
+     GROUP BY post_id`,
+    [postIds]
+  );
+
+  const viewerReactionResult = await db.query(
+    `SELECT r.target_id::int AS post_id, rt.name AS reaction_name
+     FROM reactions r
+     JOIN reaction_types rt ON rt.id = r.reaction_type_id
+     WHERE r.user_id = $1
+       AND r.target_type = 'post'
+       AND r.target_id = ANY($2::int[])`,
+    [viewerId, postIds]
+  );
+
+  const reactionCountByPost = new Map(
+    reactionCountResult.rows.map((row) => [Number(row.post_id), Number(row.count)])
+  );
+  const commentCountByPost = new Map(
+    commentCountResult.rows.map((row) => [Number(row.post_id), Number(row.count)])
+  );
+  const viewerReactionByPost = new Map(
+    viewerReactionResult.rows.map((row) => [Number(row.post_id), row.reaction_name])
+  );
+
+  return { reactionCountByPost, commentCountByPost, viewerReactionByPost };
 }
 
 async function getGlobalConversationId() {
@@ -113,7 +189,11 @@ app.post('/api/posts', async (req, res) => {
           username: authorResult.rows[0]?.username || 'Unknown',
           avatarUrl: authorResult.rows[0]?.avatar_url || null
         },
-        isFriend: false
+        isFriend: false,
+        reactionCount: 0,
+        commentCount: 0,
+        viewerReactionType: null,
+        viewerHasReacted: false
       }
     });
   } catch (error) {
@@ -175,10 +255,14 @@ app.get('/api/feed', async (req, res) => {
       strangerPosts = strangerOnlyResult.rows;
     }
 
-    const posts = [...friendPosts, ...strangerPosts]
+    const postRows = [...friendPosts, ...strangerPosts]
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-      .slice(0, limit)
-      .map((row) => ({
+      .slice(0, limit);
+    const postIds = postRows.map((row) => Number(row.id));
+    const { reactionCountByPost, commentCountByPost, viewerReactionByPost } =
+      await loadPostInteractionSnapshot(postIds, viewerId);
+
+    const posts = postRows.map((row) => ({
         id: row.id,
         content: row.content,
         createdAt: row.created_at,
@@ -187,7 +271,11 @@ app.get('/api/feed', async (req, res) => {
           username: row.username,
           avatarUrl: row.avatar_url
         },
-        isFriend: friendIdSet.has(Number(row.author_id))
+        isFriend: friendIdSet.has(Number(row.author_id)),
+        reactionCount: reactionCountByPost.get(Number(row.id)) || 0,
+        commentCount: commentCountByPost.get(Number(row.id)) || 0,
+        viewerReactionType: viewerReactionByPost.get(Number(row.id)) || null,
+        viewerHasReacted: viewerReactionByPost.has(Number(row.id))
       }));
 
     res.status(200).json({
@@ -197,6 +285,184 @@ app.get('/api/feed', async (req, res) => {
   } catch (error) {
     console.error('Fetch feed error:', error);
     res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
+app.post('/api/posts/:id/reactions', async (req, res) => {
+  const postId = Number(req.params.id);
+  const userId = Number(req.body.userId);
+  const reactionType = String(req.body.reactionType || 'like').toLowerCase().trim();
+
+  if (!postId || !userId) {
+    return res.status(400).json({ message: 'post id and userId are required.' });
+  }
+
+  try {
+    const [postResult, accountResult, reactionTypeResult] = await Promise.all([
+      db.query('SELECT id FROM posts WHERE id = $1 LIMIT 1', [postId]),
+      db.query('SELECT id FROM accounts WHERE id = $1 LIMIT 1', [userId]),
+      db.query('SELECT id, name FROM reaction_types WHERE name = $1 LIMIT 1', [reactionType])
+    ]);
+
+    if (postResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Post not found.' });
+    }
+    if (accountResult.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+    if (reactionTypeResult.rows.length === 0) {
+      return res.status(400).json({ message: 'Invalid reaction type.' });
+    }
+
+    const reactionTypeId = reactionTypeResult.rows[0].id;
+
+    const existing = await db.query(
+      `SELECT reaction_type_id
+       FROM reactions
+       WHERE user_id = $1 AND target_type = 'post' AND target_id = $2
+       LIMIT 1`,
+      [userId, postId]
+    );
+
+    let viewerReactionType = reactionType;
+    let viewerHasReacted = true;
+
+    if (existing.rows.length === 0) {
+      await db.query(
+        `INSERT INTO reactions (user_id, target_type, target_id, reaction_type_id)
+         VALUES ($1, 'post', $2, $3)`,
+        [userId, postId, reactionTypeId]
+      );
+    } else if (Number(existing.rows[0].reaction_type_id) === Number(reactionTypeId)) {
+      await db.query(
+        `DELETE FROM reactions
+         WHERE user_id = $1 AND target_type = 'post' AND target_id = $2`,
+        [userId, postId]
+      );
+      viewerReactionType = null;
+      viewerHasReacted = false;
+    } else {
+      await db.query(
+        `UPDATE reactions
+         SET reaction_type_id = $3, created_at = NOW()
+         WHERE user_id = $1 AND target_type = 'post' AND target_id = $2`,
+        [userId, postId, reactionTypeId]
+      );
+    }
+
+    const reactionCountResult = await db.query(
+      `SELECT COUNT(*)::int AS count
+       FROM reactions
+       WHERE target_type = 'post' AND target_id = $1`,
+      [postId]
+    );
+
+    return res.status(200).json({
+      reactionCount: Number(reactionCountResult.rows[0]?.count || 0),
+      viewerReactionType,
+      viewerHasReacted
+    });
+  } catch (error) {
+    console.error('Toggle post reaction error:', error);
+    return res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
+app.get('/api/posts/:id/comments', async (req, res) => {
+  const postId = Number(req.params.id);
+  const limitRaw = Number(req.query.limit);
+  const limit = Number.isInteger(limitRaw) ? Math.max(1, Math.min(200, limitRaw)) : 100;
+
+  if (!postId) {
+    return res.status(400).json({ message: 'post id is required.' });
+  }
+
+  try {
+    const postResult = await db.query('SELECT id FROM posts WHERE id = $1 LIMIT 1', [postId]);
+    if (postResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Post not found.' });
+    }
+
+    const commentsResult = await db.query(
+      `SELECT c.id, c.content, c.created_at, a.id AS author_id, a.username, a.avatar_url
+       FROM comments c
+       JOIN accounts a ON a.id = c.author_id
+       WHERE c.post_id = $1
+       ORDER BY c.created_at ASC
+       LIMIT $2`,
+      [postId, limit]
+    );
+
+    return res.status(200).json({
+      comments: commentsResult.rows.map((row) => ({
+        id: row.id,
+        content: row.content,
+        createdAt: row.created_at,
+        author: {
+          id: row.author_id,
+          username: row.username,
+          avatarUrl: row.avatar_url
+        }
+      }))
+    });
+  } catch (error) {
+    console.error('Fetch comments error:', error);
+    return res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
+app.post('/api/posts/:id/comments', async (req, res) => {
+  const postId = Number(req.params.id);
+  const authorId = Number(req.body.authorId);
+  const content = String(req.body.content || '').trim();
+
+  if (!postId || !authorId || !content) {
+    return res.status(400).json({ message: 'post id, authorId, and content are required.' });
+  }
+
+  try {
+    const [postResult, authorResult] = await Promise.all([
+      db.query('SELECT id FROM posts WHERE id = $1 LIMIT 1', [postId]),
+      db.query('SELECT id, username, avatar_url FROM accounts WHERE id = $1 LIMIT 1', [authorId])
+    ]);
+
+    if (postResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Post not found.' });
+    }
+    if (authorResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Author not found.' });
+    }
+
+    const inserted = await db.query(
+      `INSERT INTO comments (post_id, author_id, content)
+       VALUES ($1, $2, $3)
+       RETURNING id, created_at`,
+      [postId, authorId, content]
+    );
+
+    const commentCountResult = await db.query(
+      `SELECT COUNT(*)::int AS count
+       FROM comments
+       WHERE post_id = $1`,
+      [postId]
+    );
+
+    return res.status(201).json({
+      comment: {
+        id: inserted.rows[0].id,
+        content,
+        createdAt: inserted.rows[0].created_at,
+        author: {
+          id: authorResult.rows[0].id,
+          username: authorResult.rows[0].username,
+          avatarUrl: authorResult.rows[0].avatar_url
+        }
+      },
+      commentCount: Number(commentCountResult.rows[0]?.count || 0)
+    });
+  } catch (error) {
+    console.error('Create comment error:', error);
+    return res.status(500).json({ message: 'Internal server error.' });
   }
 });
 
@@ -329,6 +595,11 @@ app.get('/api/users/:id/profile', async (req, res) => {
       [targetUserId]
     );
 
+    const postRows = postsResult.rows;
+    const postIds = postRows.map((row) => Number(row.id));
+    const { reactionCountByPost, commentCountByPost, viewerReactionByPost } =
+      await loadPostInteractionSnapshot(postIds, viewerId);
+
     return res.status(200).json({
       user: {
         id: userResult.rows[0].id,
@@ -337,10 +608,14 @@ app.get('/api/users/:id/profile', async (req, res) => {
         avatarUrl: userResult.rows[0].avatar_url
       },
       friendshipStatus,
-      posts: postsResult.rows.map((row) => ({
+      posts: postRows.map((row) => ({
         id: row.id,
         content: row.content,
-        createdAt: row.created_at
+        createdAt: row.created_at,
+        reactionCount: reactionCountByPost.get(Number(row.id)) || 0,
+        commentCount: commentCountByPost.get(Number(row.id)) || 0,
+        viewerReactionType: viewerReactionByPost.get(Number(row.id)) || null,
+        viewerHasReacted: viewerReactionByPost.has(Number(row.id))
       }))
     });
   } catch (error) {

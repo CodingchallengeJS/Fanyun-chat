@@ -1,6 +1,3 @@
-ok you can ignore the client folder(it is the old version when i haven't implemented react yet), the fanyun-chat-react folder is new "client" folder, as normal i run node index.js on server/ and then npm run dev on fanyun-chat-react
-now i want to implement more about database, last time i implemented basic login
-now i updated my fanyun_chat schema, it contain these table(for both chat and posts)
 accounts (
   id SERIAL PRIMARY KEY,
   username TEXT UNIQUE,
@@ -30,6 +27,14 @@ conversation_members (
 
 posts (
   id SERIAL PRIMARY KEY,
+  author_id INT REFERENCES accounts(id),
+  content TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+)
+
+comments (
+  id SERIAL PRIMARY KEY,
+  post_id INT REFERENCES posts(id),
   author_id INT REFERENCES accounts(id),
   content TEXT,
   created_at TIMESTAMP DEFAULT NOW()
@@ -80,3 +85,14 @@ message_seen (
 
   PRIMARY KEY (message_id, user_id)
 )
+
+friendships ( --database created in your code you gave
+  user_id INT REFERENCES accounts(id),
+  friend_id INT REFERENCES accounts(id),
+  status TEXT CHECK (status IN ('pending', 'accepted')) DEFAULT 'accepted',
+  requested_by INT REFERENCES accounts(id),
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  PRIMARY KEY (user_id, friend_id),
+  CHECK (user_id < friend_id)
+);

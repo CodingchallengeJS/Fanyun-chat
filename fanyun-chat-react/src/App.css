@@ -209,6 +209,19 @@ html, body {
   display: flex;
 }
 
+#profile-popup.nested-modal-open {
+  background: transparent;
+}
+
+.hidden-by-child-modal {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.comments-modal-overlay.hidden-by-child-modal {
+  background: transparent;
+}
+
 .popup-content {
   background: white;
   padding: 20px;
@@ -618,10 +631,44 @@ html, body {
 /* === LOGIN PAGE STYLES === */
 .login-page {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100vh;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 100vh;
   background-image: linear-gradient(to bottom right, #a45fff, #7be2fe);
+  padding: 32px clamp(18px, 4vw, 48px) 20px;
+}
+
+.login-shell {
+  flex: 1;
+  width: min(1120px, 100%);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(340px, 420px);
+  align-items: center;
+  gap: clamp(24px, 6vw, 72px);
+}
+
+.login-intro {
+  max-width: 560px;
+  color: #f4f8ff;
+}
+
+.login-hero-title {
+  font-size: clamp(40px, 6vw, 68px);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  margin-bottom: 14px;
+}
+
+.login-hero-subtitle {
+  font-size: clamp(18px, 2vw, 24px);
+  line-height: 1.5;
+  color: rgba(245, 251, 255, 0.94);
+}
+
+.login-panel {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .login-container {
@@ -634,7 +681,8 @@ html, body {
   max-width: 400px;
 }
 
-.login-container h1 {
+.login-container h1,
+.login-container h2 {
   margin-bottom: 24px;
 }
 
@@ -677,7 +725,46 @@ html, body {
   cursor: pointer;
   padding: 0;
   font-size: 14px;
-  flex-direction: column;
+}
+
+.login-footer {
+  width: min(1120px, 100%);
+  margin: 18px auto 0;
+  text-align: center;
+  color: #f2f8ff;
+  font-size: 14px;
+}
+
+.login-footer p + p {
+  margin-top: 4px;
+}
+
+.login-contact-links {
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.login-contact-links a {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.login-contact-links a:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.login-contact-links a:active {
+  transform: scale(0.95);
 }
 
 /* === MODAL STYLES === */
@@ -953,6 +1040,40 @@ html, body {
   overflow-wrap: anywhere;
 }
 
+.feed-post-actions {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #e2e7f0;
+  display: flex;
+  gap: 8px;
+}
+
+.feed-post-action-btn {
+  border: none;
+  background: #f4f7ff;
+  color: #41506d;
+  border-radius: 9px;
+  padding: 7px 10px;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+}
+
+.feed-post-action-btn:hover {
+  background: #e8eeff;
+}
+
+.feed-post-action-btn.active {
+  background: #dce8ff;
+  color: #2f57d8;
+}
+
+.feed-post-action-count {
+  font-weight: 700;
+}
+
 .feed-placeholder {
   background: #ffffff;
   border: 1px solid #e2e7f0;
@@ -1044,6 +1165,7 @@ html, body {
 .home-contact-name {
   color: #27304a;
   font-weight: 600;
+  font-size: 16px;
   flex: 1;
   min-width: 0;
   white-space: nowrap;
@@ -1052,11 +1174,16 @@ html, body {
 }
 
 .home-contact-tag {
-  font-size: 11px;
+  font-size: 12px;
   padding: 2px 7px;
   border-radius: 999px;
   background: #dce9ff;
   color: #2a4a91;
+}
+
+.app.theme-dark .home-contact-tag {
+  background: #1f3f86;
+  color: #cfe0ff;
 }
 
 .home-contact-email {
@@ -1211,6 +1338,14 @@ html, body {
   margin-bottom: 8px;
 }
 
+.profile-post-item-clickable {
+  cursor: pointer;
+}
+
+.profile-post-item-clickable:hover {
+  background: #f5f8ff;
+}
+
 .profile-post-date {
   color: #6b7484;
   font-size: 12px;
@@ -1224,6 +1359,144 @@ html, body {
 
 .profile-modal-error {
   color: #9d2822;
+}
+
+.comments-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(13, 18, 30, 0.56);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2300;
+}
+
+.comments-modal {
+  width: min(760px, 94vw);
+  max-height: 90vh;
+  background: #f7fbff;
+  border-radius: 12px;
+  border: 1px solid #dfe6f4;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  padding: 14px;
+}
+
+.comments-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.comments-modal-header h3 {
+  color: #1f2738;
+}
+
+.comments-modal-close {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: none;
+  background: #eff2f8;
+  color: #1d2535;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+}
+
+.comments-modal-post {
+  margin: 0;
+}
+
+.comments-list {
+  margin-top: 12px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  border: 1px solid #e2e7f0;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.comment-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 10px;
+}
+
+.comment-item + .comment-item {
+  margin-top: 6px;
+}
+
+.comment-item:hover {
+  background: #f5f8ff;
+}
+
+.comment-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: 0 0 36px;
+}
+
+.comment-avatar-btn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+}
+
+.comment-avatar-btn:focus-visible {
+  outline: 2px solid #4f8cff;
+  outline-offset: 2px;
+}
+
+.comment-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.comment-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.comment-author {
+  font-weight: 700;
+  color: #1f2738;
+}
+
+.comment-meta {
+  font-size: 12px;
+  color: #6b7484;
+}
+
+.comment-content {
+  margin-top: 3px;
+  color: #2f3748;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.comments-input {
+  margin-top: 12px;
+}
+
+.comments-input.highlight {
+  box-shadow: 0 0 0 2px #8db1ff;
 }
 
 /* =========================
@@ -1247,7 +1520,9 @@ html, body {
 .app.theme-dark .profile-modal,
 .app.theme-dark .popup-content,
 .app.theme-dark .modal-content,
-.app.theme-dark .profile-post-item {
+.app.theme-dark .profile-post-item,
+.app.theme-dark .comments-modal,
+.app.theme-dark .comments-list {
   background: #131d2e;
   border-color: #273551;
   color: #dce5f7;
@@ -1269,12 +1544,19 @@ html, body {
   background: #223151;
 }
 
+.app.theme-dark .profile-post-item-clickable:hover {
+  background: #1b2943;
+}
+
 .app.theme-dark .chat-item:hover,
 .app.theme-dark .chat-action-btn:hover,
 .app.theme-dark .theme-option:hover,
 .app.theme-dark .popup-content .close:hover,
 .app.theme-dark .modal-close:hover,
-.app.theme-dark .profile-modal-close:hover {
+.app.theme-dark .profile-modal-close:hover,
+.app.theme-dark .feed-post-action-btn:hover,
+.app.theme-dark .comment-item:hover,
+.app.theme-dark .comments-modal-close:hover {
   background: #253557;
 }
 
@@ -1322,8 +1604,15 @@ html, body {
 .app.theme-dark .message .username,
 .app.theme-dark .message .time,
 .app.theme-dark .setting-label,
-.app.theme-dark .app-title {
+.app.theme-dark .app-title,
+.app.theme-dark .comment-meta,
+.app.theme-dark .comment-content {
   color: #b8c6df;
+}
+
+.app.theme-dark .contact-name,
+.app.theme-dark .home-contact-name {
+  color: #f1f6ff;
 }
 
 .app.theme-dark .profile-name,
@@ -1331,7 +1620,9 @@ html, body {
 .app.theme-dark .home-contacts-column h3,
 .app.theme-dark .post-composer h3,
 .app.theme-dark .profile-modal h3,
-.app.theme-dark .profile-posts h4 {
+.app.theme-dark .profile-posts h4,
+.app.theme-dark .comments-modal-header h3,
+.app.theme-dark .comment-author {
   color: #e7eefc;
 }
 
@@ -1353,6 +1644,17 @@ html, body {
   color: #dce5f7;
 }
 
+.app.theme-dark .popup-content .close,
+.app.theme-dark .profile-modal-close {
+  background: #1a2740;
+  color: #dce5f7;
+}
+
+.app.theme-dark .comments-modal-close {
+  background: #1a2740;
+  color: #dce5f7;
+}
+
 .app.theme-dark .profile-btn.primary,
 .app.theme-dark .post-composer-actions button,
 .app.theme-dark .chat-input button,
@@ -1368,6 +1670,24 @@ html, body {
   color: #c9dcff;
 }
 
+.app.theme-dark .feed-post-actions {
+  border-color: #273551;
+}
+
+.app.theme-dark .feed-post-action-btn {
+  background: #1a2740;
+  color: #c9d7ef;
+}
+
+.app.theme-dark .feed-post-action-btn.active {
+  background: #2f4e9f;
+  color: #eaf1ff;
+}
+
+.app.theme-dark .comments-input.highlight {
+  box-shadow: 0 0 0 2px #4f7dff;
+}
+
 .app.theme-dark .feed-error,
 .app.theme-dark .profile-modal-error,
 .app.theme-dark .error-message {
@@ -1381,6 +1701,25 @@ html, body {
 }
 
 @media (max-width: 980px) {
+  .login-page {
+    padding-top: 20px;
+  }
+
+  .login-shell {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+
+  .login-panel {
+    justify-content: center;
+  }
+
+  .login-intro {
+    text-align: center;
+    margin: 0 auto;
+  }
+
   .home-layout {
     grid-template-columns: 1fr;
   }

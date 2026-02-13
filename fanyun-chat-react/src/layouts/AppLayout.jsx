@@ -26,11 +26,17 @@ function AppLayout({ user, onLogout, onUserUpdate, themeMode, resolvedTheme, onT
   };
 
   const handleToggleProfile = () => {
+    setSettingsOpen(false);
     if (isProfileOpen) {
       setProfileOpen(false);
       return;
     }
     handleOpenProfile(user?.id);
+  };
+
+  const handleToggleSettings = () => {
+    setProfileOpen(false);
+    setSettingsOpen((prev) => !prev);
   };
 
   const renderPage = () => {
@@ -49,7 +55,7 @@ function AppLayout({ user, onLogout, onUserUpdate, themeMode, resolvedTheme, onT
         <Sidebar
             onPageChange={setActivePage}
             onToggleProfile={handleToggleProfile}
-            onToggleSettings={() => setSettingsOpen(!isSettingsOpen)}
+            onToggleSettings={handleToggleSettings}
         />
 
         <main className="content">
@@ -63,6 +69,7 @@ function AppLayout({ user, onLogout, onUserUpdate, themeMode, resolvedTheme, onT
             onUserUpdate={onUserUpdate}
             targetUserId={profileTargetUserId}
             onOpenChat={handleOpenChatFromHome}
+            onOpenProfile={handleOpenProfile}
         />
         <Setting
             isActive={isSettingsOpen}
