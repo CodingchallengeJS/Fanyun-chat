@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import io from 'socket.io-client';
 import Message from './Message';
 import DateDivider from './DateDivider';
 import ContactList from './ContactList';
+import socket from '../../lib/socket';
 
-const socket = io(import.meta.env.VITE_API_URL);
 const GROUP_TIME = 2 * 60 * 1000;
 const GLOBAL_CONTACT = { id: 'global-chat-01', name: 'Global Chat', type: 'group' };
 
@@ -15,12 +14,6 @@ function Messenger({ currentUser, preselectedContact }) {
   const [isChatInfoOpen, setChatInfoOpen] = useState(true);
   const chatBodyRef = useRef(null);
   const isDirectConversation = activeContact?.type === 'direct' && Boolean(activeContact?.conversationId);
-
-  useEffect(() => {
-    if (preselectedContact?.id) {
-      setActiveContact(preselectedContact);
-    }
-  }, [preselectedContact]);
 
   useEffect(() => {
     const onReceiveMessage = (newMessage) => {

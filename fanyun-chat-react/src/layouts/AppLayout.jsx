@@ -7,7 +7,7 @@ import Profile from '../components/Profile/Profile';
 import Setting from '../components/Setting/Setting';
 
 // This component contains the main UI of your application
-function AppLayout({ user, onLogout, onUserUpdate }) {
+function AppLayout({ user, onLogout, onUserUpdate, themeMode, resolvedTheme, onThemeChange }) {
   const [activePage, setActivePage] = useState('home');
   const [isProfileOpen, setProfileOpen] = useState(false);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
@@ -44,7 +44,7 @@ function AppLayout({ user, onLogout, onUserUpdate }) {
   };
 
   return (
-    <div className="app">
+    <div className={`app theme-${resolvedTheme}`}>
       {/* We can pass onLogout to the sidebar to add a logout button */}
         <Sidebar
             onPageChange={setActivePage}
@@ -68,6 +68,8 @@ function AppLayout({ user, onLogout, onUserUpdate }) {
             isActive={isSettingsOpen}
             onClose={() => setSettingsOpen(false)}
             onLogout={onLogout}
+            themeMode={themeMode}
+            onThemeChange={onThemeChange}
         />
     </div>
   );

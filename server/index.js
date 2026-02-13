@@ -595,6 +595,7 @@ app.get('/api/conversations', async (req, res) => {
          a.username AS contact_username,
          a.avatar_url AS contact_avatar_url,
          lm.content AS last_message,
+         lm.sender_username AS last_message_sender_username,
          lm.created_at AS last_message_at
        FROM conversations c
        JOIN conversation_members cms
@@ -604,8 +605,9 @@ app.get('/api/conversations', async (req, res) => {
        JOIN accounts a
          ON a.id = cmo.user_id
        LEFT JOIN LATERAL (
-         SELECT m.content, m.created_at
+         SELECT m.content, m.created_at, s.username AS sender_username
          FROM messages m
+         JOIN accounts s ON s.id = m.sender_id
          WHERE m.conversation_id = c.id
          ORDER BY m.created_at DESC
          LIMIT 1
@@ -635,7 +637,9 @@ app.get('/api/conversations', async (req, res) => {
         conversationId: row.conversation_id,
         name: row.contact_username,
         avatarUrl: row.contact_avatar_url,
-        lastMessage: row.last_message || 'No messages yet.',
+        lastMessage: row.last_message
+          ? `${row.last_message_sender_username}: ${row.last_message}`
+          : 'No messages yet.',
         updatedAt: row.last_message_at || row.conversation_created_at
       }))
     ];

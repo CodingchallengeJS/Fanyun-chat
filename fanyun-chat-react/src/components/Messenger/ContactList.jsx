@@ -1,8 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import ContactItem from './ContactItem';
 import defaultAvatar from '../../assets/default-avatar.svg';
+import socket from '../../lib/socket';
 
 const GLOBAL_CHAT_ID = 'global-chat-01';
+
+const sortContacts = (list) => {
+  return [...list].sort((a, b) => {
+    if (a.id === GLOBAL_CHAT_ID) return -1;
+    if (b.id === GLOBAL_CHAT_ID) return 1;
+    const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+    const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+    return bTime - aTime;
+  });
+};
 
 function ContactList({ onContactSelect, currentUser, preselectedContact }) {
   const [contacts, setContacts] = useState([]);
@@ -43,13 +54,7 @@ function ContactList({ onContactSelect, currentUser, preselectedContact }) {
           });
 
           const merged = Array.from(byId.values());
-          return merged.sort((a, b) => {
-            if (a.id === GLOBAL_CHAT_ID) return -1;
-            if (b.id === GLOBAL_CHAT_ID) return 1;
-            const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-            const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
-            return bTime - aTime;
-          });
+          return sortContacts(merged);
         });
       } catch {
         if (!isActive) return;
@@ -64,6 +69,38 @@ function ContactList({ onContactSelect, currentUser, preselectedContact }) {
       isActive = false;
     };
   }, [currentUser?.id]);
+
+  useEffect(() => {
+    const onReceiveMessage = (message) => {
+      setContacts((prev) => {
+        if (!Array.isArray(prev) || prev.length === 0) return prev;
+
+        const isDirect = Boolean(message.conversationId);
+        const targetId = isDirect ? `direct-${message.conversationId}` : GLOBAL_CHAT_ID;
+
+        const messageText = message?.text || '';
+        const senderName = message?.user || 'Unknown';
+        const lastMessage = messageText ? `${senderName}: ${messageText}` : senderName;
+
+        let changed = false;
+        const next = prev.map((contact) => {
+          if (contact.id !== targetId) return contact;
+          changed = true;
+          return {
+            ...contact,
+            lastMessage,
+            updatedAt: message?.timestamp ? new Date(message.timestamp).toISOString() : new Date().toISOString()
+          };
+        });
+
+        if (!changed) return prev;
+        return sortContacts(next);
+      });
+    };
+
+    socket.on('receive-message', onReceiveMessage);
+    return () => socket.off('receive-message', onReceiveMessage);
+  }, []);
 
   useEffect(() => {
     if (preselectedContact?.id) {

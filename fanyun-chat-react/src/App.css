@@ -746,6 +746,47 @@ html, body {
 
 /* Setting & Log out */
 
+.setting-row {
+  margin-top: 12px;
+}
+
+.setting-label {
+  margin-bottom: 8px;
+  color: #2b3345;
+  font-weight: 600;
+}
+
+.theme-options {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #d3dae7;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.theme-option {
+  border: none;
+  background: #f7f9fd;
+  color: #4e5a70;
+  padding: 8px 13px;
+  font-size: 14px;
+  cursor: pointer;
+  border-right: 1px solid #d3dae7;
+}
+
+.theme-option:last-child {
+  border-right: none;
+}
+
+.theme-option:hover {
+  background: #eef2ff;
+}
+
+.theme-option.active {
+  background: #2f57d8;
+  color: #ffffff;
+}
+
 .setting-actions {
   margin-top: 25px;
   border-top: 1px solid #eee;
@@ -1186,6 +1227,161 @@ html, body {
 
 .profile-modal-error {
   color: #9d2822;
+}
+
+/* =========================
+   DARK THEME (sidebar excluded)
+   ========================= */
+
+.app.theme-dark .content {
+  background: #0f1625;
+  color: #dce5f7;
+}
+
+.app.theme-dark .chat-list,
+.app.theme-dark .chat-area,
+.app.theme-dark .chat-header,
+.app.theme-dark .chat-info,
+.app.theme-dark .chat-input,
+.app.theme-dark .post-composer,
+.app.theme-dark .feed-post,
+.app.theme-dark .feed-placeholder,
+.app.theme-dark .home-contacts-column,
+.app.theme-dark .profile-modal,
+.app.theme-dark .popup-content,
+.app.theme-dark .modal-content,
+.app.theme-dark .profile-post-item {
+  background: #131d2e;
+  border-color: #273551;
+  color: #dce5f7;
+}
+
+.app.theme-dark .chat-body {
+  background: #0f1728;
+}
+
+.app.theme-dark .card,
+.app.theme-dark .home-contact-item,
+.app.theme-dark .message.other .bubble {
+  background: #1a2740;
+  color: #dce5f7;
+  border-color: #273551;
+}
+
+.app.theme-dark .home-contact-item:hover {
+  background: #223151;
+}
+
+.app.theme-dark .chat-item:hover,
+.app.theme-dark .chat-action-btn:hover,
+.app.theme-dark .theme-option:hover,
+.app.theme-dark .popup-content .close:hover,
+.app.theme-dark .modal-close:hover,
+.app.theme-dark .profile-modal-close:hover {
+  background: #253557;
+}
+
+.app.theme-dark .chat-item.active {
+  background: #2a3d63;
+}
+
+.app.theme-dark .chat-item {
+  border-bottom-color: #273551;
+}
+
+.app.theme-dark .theme-options,
+.app.theme-dark .theme-option,
+.app.theme-dark .chat-list .search-bar input,
+.app.theme-dark .chat-input input,
+.app.theme-dark .post-composer textarea,
+.app.theme-dark .home-contact-search,
+.app.theme-dark .login-container input {
+  background: #111a2b;
+  border-color: #304260;
+  color: #dce5f7;
+}
+
+.app.theme-dark .theme-option.active,
+.app.theme-dark .chat-action-btn.active {
+  background: #3e67e7;
+  color: #ffffff;
+}
+
+.app.theme-dark .home-contact-item,
+.app.theme-dark .chat-item,
+.app.theme-dark .contact-last-message,
+.app.theme-dark .contact-name,
+.app.theme-dark .home-contact-name,
+.app.theme-dark .home-contact-email,
+.app.theme-dark .home-contact-caption,
+.app.theme-dark .home-contact-empty,
+.app.theme-dark .feed-post-meta,
+.app.theme-dark .feed-post-content,
+.app.theme-dark .profile-email,
+.app.theme-dark .profile-modal-email,
+.app.theme-dark .profile-post-date,
+.app.theme-dark .timestamp,
+.app.theme-dark .typing,
+.app.theme-dark .date-divider,
+.app.theme-dark .message .username,
+.app.theme-dark .message .time,
+.app.theme-dark .setting-label,
+.app.theme-dark .app-title {
+  color: #b8c6df;
+}
+
+.app.theme-dark .profile-name,
+.app.theme-dark .feed-post-author,
+.app.theme-dark .home-contacts-column h3,
+.app.theme-dark .post-composer h3,
+.app.theme-dark .profile-modal h3,
+.app.theme-dark .profile-posts h4 {
+  color: #e7eefc;
+}
+
+.app.theme-dark .date-divider {
+  background: rgba(38, 52, 82, 0.85);
+}
+
+.app.theme-dark .setting-actions,
+.app.theme-dark .chat-header,
+.app.theme-dark .profile-modal-top,
+.app.theme-dark .home-contact-self-section,
+.app.theme-dark .chat-list .search-bar {
+  border-color: #273551;
+}
+
+.app.theme-dark .profile-btn {
+  background: #1a2740;
+  border-color: #304260;
+  color: #dce5f7;
+}
+
+.app.theme-dark .profile-btn.primary,
+.app.theme-dark .post-composer-actions button,
+.app.theme-dark .chat-input button,
+.app.theme-dark .chat-send-btn,
+.app.theme-dark .login-container button {
+  background: #3e67e7;
+  border-color: #3e67e7;
+}
+
+.app.theme-dark .feed-note {
+  background: #1a2d4d;
+  border-color: #34548b;
+  color: #c9dcff;
+}
+
+.app.theme-dark .feed-error,
+.app.theme-dark .profile-modal-error,
+.app.theme-dark .error-message {
+  background: #3a1f2a;
+  border-color: #6a3341;
+  color: #ffccd5;
+}
+
+.app.theme-dark .success-message {
+  color: #8ce9b7;
 }
 
 @media (max-width: 980px) {

@@ -1,7 +1,6 @@
 import React from 'react';
 
-// Accept onLogout from props
-function Sidebar({ onPageChange, onToggleProfile, onToggleSettings, onLogout }) {
+function Sidebar({ onPageChange, onToggleProfile, onToggleSettings }) {
   return (
     <aside className="sidebar">
       <div className="nav-top">
