@@ -143,60 +143,62 @@ function Messenger({ currentUser, preselectedContact }) {
           preselectedContact={preselectedContact}
         />
 
-        <div className="chat-area">
-          <div className="chat-header">
-            <span><b>{activeContact.name}</b></span>
-            <div className="chat-actions">
-              <button
-                type="button"
-                className="chat-action-btn"
-                aria-label="Start voice call"
-                onClick={handleCallClick}
-              >
-                <i className="fas fa-phone" aria-hidden="true"></i>
-              </button>
-              <button
-                type="button"
-                className="chat-action-btn"
-                aria-label="Start video call"
-                onClick={handleVideoClick}
-              >
-                <i className="fas fa-video" aria-hidden="true"></i>
-              </button>
-              <button
-                type="button"
-                className={`chat-action-btn ${isChatInfoOpen ? 'active' : ''}`.trim()}
-                aria-label="Toggle chat info"
-                aria-pressed={isChatInfoOpen}
-                onClick={handleToggleChatInfo}
-              >
-                <i className="fas fa-ellipsis" aria-hidden="true"></i>
-              </button>
-            </div>
-          </div>
-
-          <div className="chat-body" ref={chatBodyRef}>
-            {dateGroups.map((group) => (
-              <div className="date-group" key={group.dateKey}>
-                <DateDivider timestamp={group.messages[0].timestamp} />
-                {group.messages.map((msg, index) => {
-                  const prevMsg = group.messages[index - 1];
-                  const isContinuous =
-                    prevMsg &&
-                    prevMsg.user === msg.user &&
-                    (msg.timestamp - prevMsg.timestamp) < GROUP_TIME;
-
-                  return (
-                    <Message
-                      key={msg.id}
-                      msg={msg}
-                      username={currentUser.username}
-                      isContinuous={isContinuous}
-                    />
-                  );
-                })}
+        <div className="chat-center">
+          <div className="chat-area">
+            <div className="chat-header">
+              <span><b>{activeContact.name}</b></span>
+              <div className="chat-actions">
+                <button
+                  type="button"
+                  className="chat-action-btn"
+                  aria-label="Start voice call"
+                  onClick={handleCallClick}
+                >
+                  <i className="fas fa-phone" aria-hidden="true"></i>
+                </button>
+                <button
+                  type="button"
+                  className="chat-action-btn"
+                  aria-label="Start video call"
+                  onClick={handleVideoClick}
+                >
+                  <i className="fas fa-video" aria-hidden="true"></i>
+                </button>
+                <button
+                  type="button"
+                  className={`chat-action-btn ${isChatInfoOpen ? 'active' : ''}`.trim()}
+                  aria-label="Toggle chat info"
+                  aria-pressed={isChatInfoOpen}
+                  onClick={handleToggleChatInfo}
+                >
+                  <i className="fas fa-ellipsis" aria-hidden="true"></i>
+                </button>
               </div>
-            ))}
+            </div>
+
+            <div className="chat-body" ref={chatBodyRef}>
+              {dateGroups.map((group) => (
+                <div className="date-group" key={group.dateKey}>
+                  <DateDivider timestamp={group.messages[0].timestamp} />
+                  {group.messages.map((msg, index) => {
+                    const prevMsg = group.messages[index - 1];
+                    const isContinuous =
+                      prevMsg &&
+                      prevMsg.user === msg.user &&
+                      (msg.timestamp - prevMsg.timestamp) < GROUP_TIME;
+
+                    return (
+                      <Message
+                        key={msg.id}
+                        msg={msg}
+                        username={currentUser.username}
+                        isContinuous={isContinuous}
+                      />
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="chat-input">
@@ -206,7 +208,9 @@ function Messenger({ currentUser, preselectedContact }) {
               onKeyDown={handleKeyDown}
               placeholder="Type a message..."
             />
-            <button onClick={sendMessage} style={{ width: '15%' }}>Send</button>
+            <button type="button" className="chat-send-btn" onClick={sendMessage} aria-label="Send message">
+              <i className="fas fa-paper-plane" aria-hidden="true"></i>
+            </button>
           </div>
         </div>
 

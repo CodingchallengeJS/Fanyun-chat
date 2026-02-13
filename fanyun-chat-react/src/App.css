@@ -50,7 +50,7 @@ html, body {
 /* CONTENT */
 .content {
   flex: 1;
-  background: #f3fbff;
+  background: #edf9ff;
 }
 
 /* PAGE */
@@ -68,13 +68,27 @@ html, body {
 .message-layout {
   display: flex;
   height: 100%;
+  gap: 16px;
+}
+
+.chat-center {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 /* CHAT LIST */
 .chat-list {
-  width: 280px;
-  border-right: 1px solid #ccc;
+  width: 300px;
+  background: #ffffff;
+  border: 1px solid #e2e7f0;
+  border-radius: 12px;
   padding: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .chat-list input {
@@ -98,15 +112,20 @@ html, body {
   flex: 1;
   display: flex;
   flex-direction: column;
+  background: #ffffff;
+  border: 1px solid #e2e7f0;
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 .chat-header {
   height: 60px;
-  border-bottom: 1px solid #ccc;
+  border-bottom: 1px solid #e2e7f0;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0 15px;
+  background: #ffffff;
 }
 
 .chat-actions {
@@ -155,13 +174,15 @@ html, body {
   padding: 15px;
   overflow-y: auto;
   position: relative;
-  background: #f8f8f8;
+  background: #f7fbff;
 }
 
 /* CHAT INFO */
 .chat-info {
-  width: 300px;
-  border-left: 1px solid #ccc;
+  width: 320px;
+  background: #ffffff;
+  border: 1px solid #e2e7f0;
+  border-radius: 12px;
   padding: 10px;
 }
 
@@ -315,9 +336,11 @@ html, body {
 /* CHAT INPUT */
 .chat-input {
   display: flex;
-  border-top: 1px solid #ccc;
+  margin: 0;
   padding: 10px;
-  background: whitesmoke;
+  border: 1px solid #e2e7f0;
+  border-radius: 12px;
+  background: #ffffff;
 }
 
 .chat-input input {
@@ -344,6 +367,23 @@ html, body {
 
 .chat-input button:hover {
   opacity: 0.9;
+}
+
+.chat-input .chat-send-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 10px;
+}
+
+.chat-input .chat-send-btn i {
+  font-size: 18px;
+  line-height: 1;
+  transform: translate(-2px, 2px);
 }
 
 /* =========================
