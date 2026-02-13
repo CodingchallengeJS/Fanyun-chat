@@ -1081,22 +1081,18 @@ html, body {
 }
 
 .home-contact-item-self {
-  border: none;
-  background: transparent;
+  background: #f4f9ff;
   padding-left: 0;
   padding-right: 0;
   padding-top: 2px;
   padding-bottom: 2px;
 }
 
-.home-contact-item-self:hover {
-  background: transparent;
-}
-
 .home-contact-item-self .home-contact-avatar {
-  width: 58px;
-  height: 58px;
+  width: 76px;
+  height: 76px;
   flex-basis: 58px;
+  padding: 8px 8px;
 }
 
 .home-contact-item-self .home-contact-name {
@@ -1285,10 +1281,6 @@ html, body {
   background: #2a3d63;
 }
 
-.app.theme-dark .chat-item {
-  border-bottom-color: #273551;
-}
-
 .app.theme-dark .theme-options,
 .app.theme-dark .theme-option,
 .app.theme-dark .chat-list .search-bar input,
@@ -1307,8 +1299,11 @@ html, body {
   color: #ffffff;
 }
 
+.app.theme-dark .chat-item {
+    border-bottom-color: #273551;
+}
+
 .app.theme-dark .home-contact-item,
-.app.theme-dark .chat-item,
 .app.theme-dark .contact-last-message,
 .app.theme-dark .contact-name,
 .app.theme-dark .home-contact-name,
