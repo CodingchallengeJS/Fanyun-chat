@@ -866,6 +866,7 @@ html, body {
   border: none;
   border-radius: 8px;
   padding: 9px 16px;
+  cursor: pointer;
 }
 
 .post-composer-actions button:disabled {
