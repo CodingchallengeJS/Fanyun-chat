@@ -91,6 +91,15 @@ html, body {
   flex-direction: column;
 }
 
+.contact-list-items {
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+  padding-right: 12px;
+  margin-right: -12px;
+  scrollbar-gutter: stable;
+}
+
 .chat-list input {
   width: 100%;
   padding: 8px;
@@ -171,10 +180,11 @@ html, body {
 
 .chat-body {
   flex: 1;
-  padding: 15px;
+  padding: 15px 0px 15px 15px;
   overflow-y: auto;
   position: relative;
   background: #f7fbff;
+  scrollbar-gutter: stable;
 }
 
 /* CHAT INFO */
@@ -911,11 +921,14 @@ html, body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
   gap: 12px;
+  --home-scrollbar-size: 12px;
 }
 
 .home-feed-column {
   overflow-y: auto;
-  padding-right: 6px;
+  padding-right: 3px;
+  margin-right: -9px;
+  scrollbar-gutter: stable;
 }
 
 .post-composer {
@@ -1118,6 +1131,101 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  scrollbar-gutter: stable;
+}
+
+/* Home scrollbars */
+.home-feed-column,
+.home-contact-list {
+  scrollbar-width: auto;
+}
+
+.app.theme-light .home-feed-column,
+.app.theme-light .home-contact-list {
+  scrollbar-color: #dce9ff transparent;
+}
+
+.app.theme-dark .home-feed-column,
+.app.theme-dark .home-contact-list {
+  scrollbar-color: #1a2740 transparent;
+}
+
+.home-feed-column::-webkit-scrollbar,
+.home-contact-list::-webkit-scrollbar {
+  width: var(--home-scrollbar-size);
+}
+
+.home-feed-column::-webkit-scrollbar-track,
+.home-contact-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app.theme-light .home-feed-column::-webkit-scrollbar-thumb,
+.app.theme-light .home-contact-list::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #e7efff, #dce9ff);
+  border-radius: 999px;
+}
+
+.app.theme-dark .home-feed-column::-webkit-scrollbar-thumb,
+.app.theme-dark .home-contact-list::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #2a3d63, #1a2740);
+  border-radius: 999px;
+}
+
+.home-feed-column::-webkit-scrollbar-thumb:hover,
+.home-contact-list::-webkit-scrollbar-thumb:hover {
+  filter: brightness(1.08);
+}
+
+/* Messenger + profile scrollbars */
+.contact-list-items,
+.chat-body,
+.profile-posts-scroll {
+  scrollbar-width: auto;
+}
+
+.app.theme-light .contact-list-items,
+.app.theme-light .chat-body,
+.app.theme-light .profile-posts-scroll {
+  scrollbar-color: #dce9ff transparent;
+}
+
+.app.theme-dark .contact-list-items,
+.app.theme-dark .chat-body,
+.app.theme-dark .profile-posts-scroll {
+  scrollbar-color: #1a2740 transparent;
+}
+
+.contact-list-items::-webkit-scrollbar,
+.chat-body::-webkit-scrollbar,
+.profile-posts-scroll::-webkit-scrollbar {
+  width: 12px;
+}
+
+.contact-list-items::-webkit-scrollbar-track,
+.chat-body::-webkit-scrollbar-track,
+.profile-posts-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app.theme-light .contact-list-items::-webkit-scrollbar-thumb,
+.app.theme-light .chat-body::-webkit-scrollbar-thumb,
+.app.theme-light .profile-posts-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #e7efff, #dce9ff);
+  border-radius: 999px;
+}
+
+.app.theme-dark .contact-list-items::-webkit-scrollbar-thumb,
+.app.theme-dark .chat-body::-webkit-scrollbar-thumb,
+.app.theme-dark .profile-posts-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #2a3d63, #1a2740);
+  border-radius: 999px;
+}
+
+.contact-list-items::-webkit-scrollbar-thumb:hover,
+.chat-body::-webkit-scrollbar-thumb:hover,
+.profile-posts-scroll::-webkit-scrollbar-thumb:hover {
+  filter: brightness(1.08);
 }
 
 .home-contact-item {
@@ -1305,6 +1413,9 @@ html, body {
   flex: 1;
   overflow-y: auto;
   padding-top: 12px;
+  padding-right: 8px;
+  margin-right: -8px;
+  scrollbar-gutter: stable;
 }
 
 .profile-btn {
@@ -1722,6 +1833,17 @@ html, body {
 
   .home-layout {
     grid-template-columns: 1fr;
+  }
+
+  .home-feed-column {
+    margin-right: 0;
+    padding-right: 6px;
+  }
+
+  .contact-list-items,
+  .profile-posts-scroll {
+    margin-right: 0;
+    padding-right: 6px;
   }
 
   .home-contacts-column {
