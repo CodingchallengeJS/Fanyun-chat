@@ -95,8 +95,8 @@ html, body {
   overflow-y: auto;
   min-height: 0;
   flex: 1;
-  padding-right: 12px;
-  margin-right: -12px;
+  padding-right: 2px;
+  margin-right: -8px;
   scrollbar-gutter: stable;
 }
 
@@ -180,7 +180,7 @@ html, body {
 
 .chat-body {
   flex: 1;
-  padding: 15px 0px 15px 15px;
+  padding: 15px 2px 15px 15px;
   overflow-y: auto;
   position: relative;
   background: #f7fbff;
@@ -1131,6 +1131,8 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding-right: 2px;
+  margin-right: -12px;
   scrollbar-gutter: stable;
 }
 
@@ -1319,7 +1321,7 @@ html, body {
 .home-contact-item-self {
   background: #f4f9ff;
   padding-left: 0;
-  padding-right: 0;
+  padding-right: 0px;
   padding-top: 2px;
   padding-bottom: 2px;
 }
@@ -1842,7 +1844,7 @@ html, body {
 
   .contact-list-items,
   .profile-posts-scroll {
-    margin-right: 0;
+    margin-right: 0px;
     padding-right: 6px;
   }
 
