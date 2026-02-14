@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import defaultAvatar from '../../assets/default-avatar.svg';
 
+const POST_PREVIEW_LENGTH = 220;
+
 function formatDateTime(ts) {
   const d = new Date(ts);
   return d.toLocaleString(undefined, {
@@ -30,6 +32,7 @@ function Profile({ isActive, onClose, user, onUserUpdate, targetUserId, onOpenCh
   const [isOpeningChat, setOpeningChat] = useState(false);
   const [profileData, setProfileData] = useState(null);
   const [isReactingPostId, setReactingPostId] = useState(null);
+  const [expandedPostIds, setExpandedPostIds] = useState({});
 
   const [commentPost, setCommentPost] = useState(null);
   const [comments, setComments] = useState([]);
@@ -144,22 +147,28 @@ function Profile({ isActive, onClose, user, onUserUpdate, targetUserId, onOpenCh
 
   const handleAddFriend = async () => {
     if (!profileUser?.id || !user?.id) return;
+    const shouldUnfriend = isFriend;
     setAddingFriend(true);
     setError('');
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/friends/add`, {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}${shouldUnfriend ? '/api/friends/remove' : '/api/friends/add'}`,
+        {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fromUserId: user.id,
           toUserId: profileUser.id
         })
-      });
+      }
+      );
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to add friend.');
+        throw new Error(data.message || (shouldUnfriend ? 'Failed to unfriend.' : 'Failed to add friend.'));
       }
-      setProfileData((prev) => (prev ? { ...prev, friendshipStatus: 'friend' } : prev));
+      setProfileData((prev) => (
+        prev ? { ...prev, friendshipStatus: shouldUnfriend ? 'none' : 'friend' } : prev
+      ));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -190,7 +199,9 @@ function Profile({ isActive, onClose, user, onUserUpdate, targetUserId, onOpenCh
         id: `direct-${conversation.id}`,
         type: 'direct',
         conversationId: conversation.id,
-        name: conversation.contact?.name || profileUser.username
+        contactUserId: conversation.contact?.id || profileUser.id,
+        name: conversation.contact?.name || profileUser.username,
+        avatarUrl: conversation.contact?.avatarUrl || profileUser.avatarUrl || null
       });
       onClose?.();
     } catch (err) {
@@ -347,6 +358,45 @@ function Profile({ isActive, onClose, user, onUserUpdate, targetUserId, onOpenCh
     }
   };
 
+  const renderExpandablePostContent = (post, options = {}) => {
+    const text = String(post?.content || '');
+    const postId = Number(post?.id);
+    const className = options.className || 'feed-post-content';
+    const stopPropagation = Boolean(options.stopPropagation);
+    if (!text) return <p className={className}></p>;
+
+    const isLong = text.length > POST_PREVIEW_LENGTH;
+    const isExpanded = Boolean(postId && expandedPostIds[postId]);
+    const preview = isLong ? text.slice(0, POST_PREVIEW_LENGTH).trimEnd() : text;
+
+    if (!isLong || isExpanded) {
+      return <p className={className}>{text}</p>;
+    }
+
+    return (
+      <p className={className}>
+        {preview}
+        {'... '}
+        <button
+          type="button"
+          className="inline-see-more-btn"
+          onClick={(e) => {
+            if (stopPropagation) e.stopPropagation();
+            setExpandedPostIds((prev) => ({
+              ...prev,
+              [postId]: true
+            }));
+          }}
+          onKeyDown={(e) => {
+            if (stopPropagation) e.stopPropagation();
+          }}
+        >
+          See more
+        </button>
+      </p>
+    );
+  };
+
   return (
     <div
       id="profile-popup"
@@ -408,9 +458,9 @@ function Profile({ isActive, onClose, user, onUserUpdate, targetUserId, onOpenCh
                     type="button"
                     className="profile-btn primary"
                     onClick={handleAddFriend}
-                    disabled={isAddingFriend || isFriend}
+                    disabled={isAddingFriend}
                   >
-                    {isFriend ? 'Already Friends' : (isAddingFriend ? 'Adding...' : 'Add Friend')}
+                    {isAddingFriend ? (isFriend ? 'Unfriending...' : 'Adding...') : (isFriend ? 'Unfriend' : 'Add Friend')}
                   </button>
                 )}
                 {!isProfileSelf && (
@@ -445,7 +495,10 @@ function Profile({ isActive, onClose, user, onUserUpdate, targetUserId, onOpenCh
                     }}
                   >
                     <div className="profile-post-date">{formatDateTime(post.createdAt)}</div>
-                    <p>{post.content}</p>
+                    {renderExpandablePostContent(post, {
+                      className: 'profile-post-content',
+                      stopPropagation: true
+                    })}
                   </article>
                 ))}
               </div>
@@ -502,7 +555,7 @@ function Profile({ isActive, onClose, user, onUserUpdate, targetUserId, onOpenCh
                   </div>
                 </div>
               </header>
-              <p className="feed-post-content">{commentPost.content}</p>
+              {renderExpandablePostContent(commentPost)}
               <div className="feed-post-actions">
                 <button
                   type="button"

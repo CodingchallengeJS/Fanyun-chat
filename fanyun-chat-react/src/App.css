@@ -137,6 +137,46 @@ html, body {
   background: #ffffff;
 }
 
+.chat-header-contact,
+.chat-header-contact-static {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chat-header-contact {
+  border: none;
+  background: transparent;
+  border-radius: 10px;
+  padding: 6px 8px;
+  margin-left: -8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.chat-header-contact:hover {
+  background: #eef2ff;
+}
+
+.chat-header-contact:focus-visible {
+  outline: 2px solid #4f8cff;
+  outline-offset: 2px;
+}
+
+.chat-header-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #d6deee;
+}
+
+.chat-header-name {
+  color: #1f2d3d;
+  font-size: 1.06rem;
+  line-height: 1.2;
+}
+
 .chat-actions {
   display: flex;
   align-items: center;
@@ -1053,6 +1093,26 @@ html, body {
   overflow-wrap: anywhere;
 }
 
+.inline-see-more-btn {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.inline-see-more-btn:hover {
+  text-decoration: underline;
+}
+
+.inline-see-more-btn:focus-visible {
+  outline: 2px solid #4f8cff;
+  outline-offset: 2px;
+}
+
 .feed-post-actions {
   margin-top: 12px;
   padding-top: 10px;
@@ -1426,6 +1486,7 @@ html, body {
   background: #fff;
   color: #1f2738;
   padding: 9px 14px;
+  cursor: pointer;
 }
 
 .profile-btn.primary {
@@ -1463,6 +1524,12 @@ html, body {
   color: #6b7484;
   font-size: 12px;
   margin-bottom: 4px;
+}
+
+.profile-post-content {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .profile-modal-loading,
@@ -1749,6 +1816,18 @@ html, body {
 .app.theme-dark .home-contact-self-section,
 .app.theme-dark .chat-list .search-bar {
   border-color: #273551;
+}
+
+.app.theme-dark .chat-header-contact:hover {
+  background: #1f2f4b;
+}
+
+.app.theme-dark .chat-header-avatar {
+  border-color: #304260;
+}
+
+.app.theme-dark .chat-header-name {
+  color: #e7eefc;
 }
 
 .app.theme-dark .profile-btn {

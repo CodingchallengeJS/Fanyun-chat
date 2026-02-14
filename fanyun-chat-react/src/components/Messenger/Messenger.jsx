@@ -3,17 +3,20 @@ import Message from './Message';
 import DateDivider from './DateDivider';
 import ContactList from './ContactList';
 import socket from '../../lib/socket';
+import defaultAvatar from '../../assets/default-avatar.svg';
 
 const GROUP_TIME = 2 * 60 * 1000;
 const GLOBAL_CONTACT = { id: 'global-chat-01', name: 'Global Chat', type: 'group' };
 
-function Messenger({ currentUser, preselectedContact }) {
+function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [activeContact, setActiveContact] = useState(preselectedContact || GLOBAL_CONTACT);
   const [isChatInfoOpen, setChatInfoOpen] = useState(true);
   const chatBodyRef = useRef(null);
   const isDirectConversation = activeContact?.type === 'direct' && Boolean(activeContact?.conversationId);
+  const canOpenActiveProfile = activeContact?.type === 'direct' && Boolean(activeContact?.contactUserId);
+  const headerAvatar = activeContact?.avatar || activeContact?.avatarUrl || defaultAvatar;
 
   useEffect(() => {
     const onReceiveMessage = (newMessage) => {
@@ -114,6 +117,11 @@ function Messenger({ currentUser, preselectedContact }) {
     setChatInfoOpen((prev) => !prev);
   };
 
+  const handleOpenActiveProfile = () => {
+    if (!canOpenActiveProfile) return;
+    onOpenProfile?.(activeContact.contactUserId);
+  };
+
   const dateGroups = messages.reduce((groups, msg) => {
     const dateKey = new Date(msg.timestamp).toDateString();
     const lastGroup = groups[groups.length - 1];
@@ -139,7 +147,38 @@ function Messenger({ currentUser, preselectedContact }) {
         <div className="chat-center">
           <div className="chat-area">
             <div className="chat-header">
-              <span><b>{activeContact.name}</b></span>
+              {canOpenActiveProfile ? (
+                <button
+                  type="button"
+                  className="chat-header-contact"
+                  onClick={handleOpenActiveProfile}
+                  aria-label={`Open ${activeContact.name || 'user'} profile`}
+                >
+                  <img
+                    src={headerAvatar}
+                    alt={`${activeContact.name || 'User'} avatar`}
+                    className="chat-header-avatar"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = defaultAvatar;
+                    }}
+                  />
+                  <span className="chat-header-name"><b>{activeContact.name}</b></span>
+                </button>
+              ) : (
+                <div className="chat-header-contact-static">
+                  <img
+                    src={headerAvatar}
+                    alt={`${activeContact.name || 'Chat'} avatar`}
+                    className="chat-header-avatar"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = defaultAvatar;
+                    }}
+                  />
+                  <span className="chat-header-name"><b>{activeContact.name}</b></span>
+                </div>
+              )}
               <div className="chat-actions">
                 <button
                   type="button"

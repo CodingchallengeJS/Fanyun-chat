@@ -45,7 +45,13 @@ function AppLayout({ user, onLogout, onUserUpdate, themeMode, resolvedTheme, onT
       case 'home': return <Home currentUser={user} onOpenProfile={handleOpenProfile} />;
       case 'message':
       default:
-        return <Messenger currentUser={user} preselectedContact={chatTarget} />;
+        return (
+          <Messenger
+            currentUser={user}
+            preselectedContact={chatTarget}
+            onOpenProfile={handleOpenProfile}
+          />
+        );
     }
   };
 

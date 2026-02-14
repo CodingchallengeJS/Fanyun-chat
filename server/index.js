@@ -662,6 +662,32 @@ app.post('/api/friends/add', async (req, res) => {
   }
 });
 
+app.post('/api/friends/remove', async (req, res) => {
+  const fromUserId = Number(req.body.fromUserId);
+  const toUserId = Number(req.body.toUserId);
+
+  if (!fromUserId || !toUserId) {
+    return res.status(400).json({ message: 'fromUserId and toUserId are required.' });
+  }
+  if (fromUserId === toUserId) {
+    return res.status(400).json({ message: 'Cannot unfriend yourself.' });
+  }
+
+  try {
+    const [u1, u2] = normalizeFriendPair(fromUserId, toUserId);
+    await db.query(
+      `DELETE FROM friendships
+       WHERE user_id = $1 AND friend_id = $2`,
+      [u1, u2]
+    );
+
+    res.status(200).json({ message: 'Unfriended successfully.', status: 'none' });
+  } catch (error) {
+    console.error('Remove friend error:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
 app.post('/api/chats/direct', async (req, res) => {
   const userId = Number(req.body.userId);
   const targetUserId = Number(req.body.targetUserId);
@@ -942,6 +968,7 @@ app.get('/api/conversations', async (req, res) => {
         id: `direct-${row.conversation_id}`,
         type: 'direct',
         conversationId: row.conversation_id,
+        contactUserId: row.contact_id,
         name: row.contact_username,
         avatarUrl: row.contact_avatar_url,
         lastMessage: row.last_message

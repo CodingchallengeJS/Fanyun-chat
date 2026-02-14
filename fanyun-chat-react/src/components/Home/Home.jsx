@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import defaultAvatar from '../../assets/default-avatar.svg';
 
+const POST_PREVIEW_LENGTH = 220;
+
 function formatDateTime(ts) {
   const d = new Date(ts);
   return d.toLocaleString(undefined, {
@@ -21,6 +23,7 @@ function Home({ currentUser, onOpenProfile }) {
   const [hasFriends, setHasFriends] = useState(false);
   const [posts, setPosts] = useState([]);
   const [isReactingPostId, setReactingPostId] = useState(null);
+  const [expandedPostIds, setExpandedPostIds] = useState({});
 
   const [commentPost, setCommentPost] = useState(null);
   const [comments, setComments] = useState([]);
@@ -236,6 +239,39 @@ function Home({ currentUser, onOpenProfile }) {
     }
   };
 
+  const renderExpandablePostContent = (post, className = 'feed-post-content') => {
+    const text = String(post?.content || '');
+    const postId = Number(post?.id);
+    if (!text) return <p className={className}></p>;
+
+    const isLong = text.length > POST_PREVIEW_LENGTH;
+    const isExpanded = Boolean(postId && expandedPostIds[postId]);
+    const preview = isLong ? text.slice(0, POST_PREVIEW_LENGTH).trimEnd() : text;
+
+    if (!isLong || isExpanded) {
+      return <p className={className}>{text}</p>;
+    }
+
+    return (
+      <p className={className}>
+        {preview}
+        {'... '}
+        <button
+          type="button"
+          className="inline-see-more-btn"
+          onClick={() =>
+            setExpandedPostIds((prev) => ({
+              ...prev,
+              [postId]: true
+            }))
+          }
+        >
+          See more
+        </button>
+      </p>
+    );
+  };
+
   return (
     <section id="home" className="page active">
       <div className="home-layout">
@@ -295,7 +331,7 @@ function Home({ currentUser, onOpenProfile }) {
                     </div>
                   </div>
                 </header>
-                <p className="feed-post-content">{post.content}</p>
+                {renderExpandablePostContent(post)}
                 <div className="feed-post-actions">
                   <button
                     type="button"
@@ -433,7 +469,7 @@ function Home({ currentUser, onOpenProfile }) {
                   </div>
                 </div>
               </header>
-              <p className="feed-post-content">{commentPost.content}</p>
+              {renderExpandablePostContent(commentPost)}
               <div className="feed-post-actions">
                 <button
                   type="button"
