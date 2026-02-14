@@ -11,6 +11,16 @@ const bcrypt = require('bcrypt'); // 1. Import bcrypt
 const { v2: cloudinary } = require('cloudinary');
 const db = require('./db'); // 2. Import your database module
 
+const BCRYPT_ROUNDS = Number.isInteger(Number(process.env.BCRYPT_ROUNDS))
+  ? Math.max(10, Number(process.env.BCRYPT_ROUNDS))
+  : 12;
+const PASSWORD_PEPPER = process.env.PASSWORD_PEPPER || '';
+const JWT_SECRET = process.env.JWT_SECRET;
+
+function normalizePasswordInput(rawPassword) {
+  return `${String(rawPassword || '')}${PASSWORD_PEPPER}`;
+}
+
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -719,16 +729,18 @@ app.post('/api/chats/direct', async (req, res) => {
 
 app.post('/api/register', async (req, res) => {
   const { username, email, password } = req.body;
-  console.log("received a create account request: " + req.body);
   // Basic validation
   if (!username || !email || !password) {
     return res.status(400).json({ message: 'Username, email, and password are required.' });
   }
 
+  const normalizedPassword = String(password || '');
+  if (normalizedPassword.length < 8) {
+    return res.status(400).json({ message: 'Password must be at least 8 characters.' });
+  }
+
   try {
-    // 4. Hash the password before storing it
-    const saltRounds = 10;
-    const passwordHash = await bcrypt.hash(password, saltRounds);
+    const passwordHash = await bcrypt.hash(normalizePasswordInput(normalizedPassword), BCRYPT_ROUNDS);
 
     // 5. Save the new user to the database
     const newUserQuery = `
@@ -775,15 +787,35 @@ app.post('/api/login', async (req, res) => {
     }
     const user = rows[0];
 
-    // 2. Compare the provided password with the stored hash
-    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+    // 2. Compare password with current scheme first, then legacy (no pepper) for migration.
+    const rawPassword = String(password || '');
+    const pepperedPassword = normalizePasswordInput(rawPassword);
+    let isPasswordValid = await bcrypt.compare(pepperedPassword, user.password_hash);
+    let matchedLegacyWithoutPepper = false;
+
+    if (!isPasswordValid && PASSWORD_PEPPER) {
+      matchedLegacyWithoutPepper = await bcrypt.compare(rawPassword, user.password_hash);
+      isPasswordValid = matchedLegacyWithoutPepper;
+    }
 
     if (!isPasswordValid) {
       return res.status(401).json({ message: 'Invalid credentials.' });
     }
+
+    const currentRounds = bcrypt.getRounds(user.password_hash);
+    const shouldUpgradeHash = matchedLegacyWithoutPepper || currentRounds < BCRYPT_ROUNDS;
+    if (shouldUpgradeHash) {
+      const upgradedHash = await bcrypt.hash(pepperedPassword, BCRYPT_ROUNDS);
+      await db.query('UPDATE accounts SET password_hash = $1 WHERE id = $2', [upgradedHash, user.id]);
+    }
     
     // 3. (Optional but recommended) Generate a JWT token for session management
-    const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET || 'your_default_secret', {
+    if (!JWT_SECRET) {
+      console.error('JWT_SECRET is not configured.');
+      return res.status(500).json({ message: 'Server is not configured for authentication.' });
+    }
+
+    const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, {
       expiresIn: '24h',
     });
 
