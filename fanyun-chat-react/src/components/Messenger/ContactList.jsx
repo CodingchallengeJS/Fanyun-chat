@@ -123,6 +123,12 @@ function ContactList({ onContactSelect, currentUser, preselectedContact }) {
   useEffect(() => {
     if (contacts.length === 0) return;
 
+    const active = contacts.find((c) => c.id === activeContactId);
+    if (active) {
+      onContactSelect(active);
+      return;
+    }
+
     const preferredId = preselectedContact?.id || GLOBAL_CHAT_ID;
     const preferred = contacts.find((c) => c.id === preferredId);
     if (preferred) {
@@ -136,7 +142,7 @@ function ContactList({ onContactSelect, currentUser, preselectedContact }) {
       setActiveContactId(fallback.id);
       onContactSelect(fallback);
     }
-  }, [contacts, onContactSelect, preselectedContact?.id]);
+  }, [activeContactId, contacts, onContactSelect, preselectedContact?.id]);
 
   const handleContactClick = (contact) => {
     setActiveContactId(contact.id);
