@@ -1559,9 +1559,17 @@ html, body {
   border: 1px solid #dfe6f4;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   position: relative;
   padding: 14px;
+}
+
+.comments-modal::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .comments-modal-header {
@@ -1594,9 +1602,9 @@ html, body {
 
 .comments-list {
   margin-top: 12px;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
+  flex: none;
+  min-height: auto;
+  overflow: visible;
   border: 1px solid #e2e7f0;
   border-radius: 12px;
   background: #ffffff;
