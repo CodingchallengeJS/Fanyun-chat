@@ -360,13 +360,16 @@ function Home({ currentUser, onOpenProfile }) {
 
         <aside className="home-contacts-column">
           <h3>Contacts</h3>
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by username or email..."
-            className="home-contact-search"
-          />
+          <div className="chat-info-search-bar home-contact-search">
+            <i className="fas fa-search" aria-hidden="true"></i>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search by username or email..."
+              aria-label="Search contacts"
+            />
+          </div>
           <div className="home-contact-caption">{searchLabel}</div>
 
           <div className="home-contact-list">
