@@ -181,12 +181,15 @@ function ContactList({ onContactSelect, currentUser, preselectedContact, pinnedC
   return (
     <div className="chat-list">
       <div className="search-bar">
-        <input
-          type="text"
-          placeholder="Search for people or groups..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+        <div className="chat-info-search-bar">
+          <i className="fas fa-search" aria-hidden="true"></i>
+          <input
+            type="text"
+            placeholder="Search for people or groups..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
       </div>
       <div className="contact-list-items">
         {isLoading && (

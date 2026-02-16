@@ -100,7 +100,7 @@ html, body {
   scrollbar-gutter: stable;
 }
 
-.chat-list input {
+.chat-list .search-bar > input {
   width: 100%;
   padding: 8px;
   margin-bottom: 10px;
@@ -853,20 +853,16 @@ html, body {
 /* SEARCH BAR in Contact List */
 .chat-list .search-bar {
   padding: 10px;
-  border-bottom: 1px solid #ccc;
+  border-bottom: 1px solid #e8edf5;
 }
 
-.chat-list .search-bar input {
+.chat-list .search-bar .chat-info-search-bar {
   width: 100%;
-  padding: 8px 12px;
-  border-radius: 18px;
-  border: 1px solid #ddd;
-  outline: none;
-  background: #ffffff;
 }
 
-.chat-list .search-bar input:focus {
-  border-color: #4f8cff;
+.chat-list .search-bar .chat-info-search-bar input {
+  margin-bottom: 0;
+  padding: 0;
 }
 
 /* CONTACT ITEM STYLING */
@@ -2002,7 +1998,6 @@ html, body {
 
 .app.theme-dark .theme-options,
 .app.theme-dark .theme-option,
-.app.theme-dark .chat-list .search-bar input,
 .app.theme-dark .chat-input input,
 .app.theme-dark .post-composer textarea,
 .app.theme-dark .home-contact-search,
@@ -2063,6 +2058,8 @@ html, body {
 
 .app.theme-dark .chat-info-search-bar input {
   color: #dce5f7;
+  background: transparent;
+  border: none;
 }
 
 .app.theme-dark .chat-info-search-meta {
