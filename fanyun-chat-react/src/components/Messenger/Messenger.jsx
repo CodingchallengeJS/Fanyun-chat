@@ -13,10 +13,15 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
   const [inputValue, setInputValue] = useState('');
   const [activeContact, setActiveContact] = useState(preselectedContact || GLOBAL_CONTACT);
   const [isChatInfoOpen, setChatInfoOpen] = useState(true);
+  const [pinnedConversationKeys, setPinnedConversationKeys] = useState(() => new Set());
   const chatBodyRef = useRef(null);
   const isDirectConversation = activeContact?.type === 'direct' && Boolean(activeContact?.conversationId);
   const canOpenActiveProfile = activeContact?.type === 'direct' && Boolean(activeContact?.contactUserId);
   const headerAvatar = activeContact?.avatar || activeContact?.avatarUrl || defaultAvatar;
+  const activeConversationKey = isDirectConversation
+    ? `direct-${activeContact.conversationId}`
+    : `group-${activeContact?.id || GLOBAL_CONTACT.id}`;
+  const isConversationPinned = pinnedConversationKeys.has(activeConversationKey);
 
   useEffect(() => {
     const onReceiveMessage = (newMessage) => {
@@ -115,6 +120,22 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
 
   const handleToggleChatInfo = () => {
     setChatInfoOpen((prev) => !prev);
+  };
+
+  const handleTogglePinnedConversation = () => {
+    setPinnedConversationKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(activeConversationKey)) {
+        next.delete(activeConversationKey);
+      } else {
+        next.add(activeConversationKey);
+      }
+      return next;
+    });
+  };
+
+  const handleSearchMessageClick = () => {
+    // Placeholder for upcoming in-conversation message search feature.
   };
 
   const handleOpenActiveProfile = () => {
@@ -248,9 +269,45 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
 
         {isChatInfoOpen && (
           <div className="chat-info">
-            <h3>Chat Info</h3>
-            <button>Search message</button>
-            <p>Recent images</p>
+            <div className="chat-info-profile">
+              <img
+                src={headerAvatar}
+                alt={`${activeContact.name || 'Chat'} avatar`}
+                className="chat-info-avatar"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = defaultAvatar;
+                }}
+              />
+              <h3 className="chat-info-name">{activeContact.name || 'Unknown'}</h3>
+            </div>
+
+            <div className="chat-info-actions" role="group" aria-label="Conversation actions">
+              <button
+                type="button"
+                className={`chat-info-action ${isConversationPinned ? 'active' : ''}`.trim()}
+                onClick={handleTogglePinnedConversation}
+                aria-label={isConversationPinned ? 'Unpin conversation' : 'Pin conversation'}
+                aria-pressed={isConversationPinned}
+              >
+                <span className="chat-info-action-icon">
+                  <i className="fas fa-thumbtack" aria-hidden="true"></i>
+                </span>
+                <span className="chat-info-action-label">Pin</span>
+              </button>
+
+              <button
+                type="button"
+                className="chat-info-action"
+                onClick={handleSearchMessageClick}
+                aria-label="Search messages"
+              >
+                <span className="chat-info-action-icon">
+                  <i className="fas fa-search" aria-hidden="true"></i>
+                </span>
+                <span className="chat-info-action-label">Search</span>
+              </button>
+            </div>
           </div>
         )}
       </div>
