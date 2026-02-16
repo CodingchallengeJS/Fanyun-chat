@@ -5,21 +5,41 @@ import socket from '../../lib/socket';
 
 const GLOBAL_CHAT_ID = 'global-chat-01';
 
-const sortContacts = (list) => {
+const getConversationKeyFromContact = (contact) => {
+  if (contact?.conversationId) return `direct-${contact.conversationId}`;
+  if (typeof contact?.id === 'string' && contact.id.startsWith('direct-')) return contact.id;
+  return `group-${contact?.id || GLOBAL_CHAT_ID}`;
+};
+
+const sortContacts = (list, pinnedConversationKeys = new Set()) => {
   return [...list].sort((a, b) => {
-    if (a.id === GLOBAL_CHAT_ID) return -1;
-    if (b.id === GLOBAL_CHAT_ID) return 1;
+    const aPinned = pinnedConversationKeys.has(getConversationKeyFromContact(a));
+    const bPinned = pinnedConversationKeys.has(getConversationKeyFromContact(b));
+    if (aPinned !== bPinned) return aPinned ? -1 : 1;
+
     const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
     const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
-    return bTime - aTime;
+    if (aTime !== bTime) return bTime - aTime;
+
+    return (a.name || '').localeCompare(b.name || '');
   });
 };
 
-function ContactList({ onContactSelect, currentUser, preselectedContact }) {
+const getMostRecentContact = (list) => {
+  if (!Array.isArray(list) || list.length === 0) return null;
+  return [...list].sort((a, b) => {
+    const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+    const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+    if (aTime !== bTime) return bTime - aTime;
+    return (a.name || '').localeCompare(b.name || '');
+  })[0];
+};
+
+function ContactList({ onContactSelect, currentUser, preselectedContact, pinnedConversationKeys }) {
   const [contacts, setContacts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeContactId, setActiveContactId] = useState(preselectedContact?.id || GLOBAL_CHAT_ID);
+  const [activeContactId, setActiveContactId] = useState(preselectedContact?.id || null);
 
   useEffect(() => {
     if (!currentUser?.id) return;
@@ -94,13 +114,13 @@ function ContactList({ onContactSelect, currentUser, preselectedContact }) {
         });
 
         if (!changed) return prev;
-        return sortContacts(next);
+        return sortContacts(next, pinnedConversationKeys);
       });
     };
 
     socket.on('receive-message', onReceiveMessage);
     return () => socket.off('receive-message', onReceiveMessage);
-  }, []);
+  }, [pinnedConversationKeys]);
 
   useEffect(() => {
     if (preselectedContact?.id) {
@@ -115,10 +135,14 @@ function ContactList({ onContactSelect, currentUser, preselectedContact }) {
           },
           ...prev
         ];
-        return next;
+        return sortContacts(next, pinnedConversationKeys);
       });
     }
-  }, [preselectedContact?.id]);
+  }, [pinnedConversationKeys, preselectedContact]);
+
+  useEffect(() => {
+    setContacts((prev) => sortContacts(prev, pinnedConversationKeys));
+  }, [pinnedConversationKeys]);
 
   useEffect(() => {
     if (contacts.length === 0) return;
@@ -129,15 +153,16 @@ function ContactList({ onContactSelect, currentUser, preselectedContact }) {
       return;
     }
 
-    const preferredId = preselectedContact?.id || GLOBAL_CHAT_ID;
-    const preferred = contacts.find((c) => c.id === preferredId);
-    if (preferred) {
-      setActiveContactId(preferred.id);
-      onContactSelect(preferred);
-      return;
+    if (preselectedContact?.id) {
+      const preferred = contacts.find((c) => c.id === preselectedContact.id);
+      if (preferred) {
+        setActiveContactId(preferred.id);
+        onContactSelect(preferred);
+        return;
+      }
     }
 
-    const fallback = contacts.find((c) => c.id === GLOBAL_CHAT_ID) || contacts[0];
+    const fallback = getMostRecentContact(contacts) || contacts[0];
     if (fallback) {
       setActiveContactId(fallback.id);
       onContactSelect(fallback);
