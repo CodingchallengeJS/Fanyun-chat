@@ -849,6 +849,26 @@ html, body {
   text-align: right;
   margin-top: 2px;
 }
+.seen-receipts {
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.seen-receipt-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid #ffffff;
+  object-fit: cover;
+  margin-left: -4px;
+  background: #dfe6f4;
+}
+
+.seen-receipt-avatar:first-child {
+  margin-left: 0;
+}
 
 /* SEARCH BAR in Contact List */
 .chat-list .search-bar {
@@ -2159,6 +2179,11 @@ html, body {
 
 .app.theme-dark .chat-header-avatar {
   border-color: #304260;
+}
+
+.app.theme-dark .seen-receipt-avatar {
+  border-color: #1b273f;
+  background: #314463;
 }
 
 .app.theme-dark .chat-header-name {

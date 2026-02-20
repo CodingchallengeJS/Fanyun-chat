@@ -65,6 +65,20 @@ async function ensureSocialTables() {
   `);
 
   await db.query(`
+    CREATE TABLE IF NOT EXISTS message_seen (
+      message_id INT REFERENCES messages(id) ON DELETE CASCADE,
+      user_id INT REFERENCES accounts(id) ON DELETE CASCADE,
+      seen_at TIMESTAMP DEFAULT NOW(),
+      PRIMARY KEY (message_id, user_id)
+    );
+  `);
+
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS idx_message_seen_user_message
+      ON message_seen(user_id, message_id);
+  `);
+
+  await db.query(`
     CREATE INDEX IF NOT EXISTS idx_reactions_target
       ON reactions(target_type, target_id);
   `);
@@ -991,10 +1005,27 @@ app.get('/api/conversations/global/messages', async (req, res) => {
   try {
     const conversationId = await getGlobalConversationId();
     const { rows } = await db.query(
-      `SELECT m.id, m.content, m.created_at, a.username, a.id AS user_id
+      `SELECT m.id,
+              m.content,
+              m.created_at,
+              a.username,
+              a.id AS user_id,
+              COALESCE(
+                json_agg(
+                  DISTINCT jsonb_build_object(
+                    'userId', seen_user.id,
+                    'username', seen_user.username,
+                    'avatarUrl', seen_user.avatar_url
+                  )
+                ) FILTER (WHERE seen_user.id IS NOT NULL AND seen_user.id <> m.sender_id),
+                '[]'::json
+              ) AS seen_by_users
        FROM messages m
        JOIN accounts a ON a.id = m.sender_id
+       LEFT JOIN message_seen ms ON ms.message_id = m.id
+       LEFT JOIN accounts seen_user ON seen_user.id = ms.user_id
        WHERE m.conversation_id = $1
+       GROUP BY m.id, m.content, m.created_at, a.username, a.id, m.sender_id
        ORDER BY m.created_at ASC
        LIMIT $2`,
       [conversationId, limit]
@@ -1006,7 +1037,8 @@ app.get('/api/conversations/global/messages', async (req, res) => {
       userId: row.user_id,
       text: row.content,
       timestamp: new Date(row.created_at).getTime(),
-      status: 'sent'
+      status: 'sent',
+      seenByUsers: Array.isArray(row.seen_by_users) ? row.seen_by_users : []
     }));
 
     res.status(200).json({ messages });
@@ -1040,10 +1072,27 @@ app.get('/api/conversations/:id/messages', async (req, res) => {
     }
 
     const { rows } = await db.query(
-      `SELECT m.id, m.content, m.created_at, a.username, a.id AS user_id
+      `SELECT m.id,
+              m.content,
+              m.created_at,
+              a.username,
+              a.id AS user_id,
+              COALESCE(
+                json_agg(
+                  DISTINCT jsonb_build_object(
+                    'userId', seen_user.id,
+                    'username', seen_user.username,
+                    'avatarUrl', seen_user.avatar_url
+                  )
+                ) FILTER (WHERE seen_user.id IS NOT NULL AND seen_user.id <> m.sender_id),
+                '[]'::json
+              ) AS seen_by_users
        FROM messages m
        JOIN accounts a ON a.id = m.sender_id
+       LEFT JOIN message_seen ms ON ms.message_id = m.id
+       LEFT JOIN accounts seen_user ON seen_user.id = ms.user_id
        WHERE m.conversation_id = $1
+       GROUP BY m.id, m.content, m.created_at, a.username, a.id, m.sender_id
        ORDER BY m.created_at ASC
        LIMIT $2`,
       [conversationId, limit]
@@ -1056,7 +1105,8 @@ app.get('/api/conversations/:id/messages', async (req, res) => {
       userId: row.user_id,
       text: row.content,
       timestamp: new Date(row.created_at).getTime(),
-      status: 'sent'
+      status: 'sent',
+      seenByUsers: Array.isArray(row.seen_by_users) ? row.seen_by_users : []
     }));
 
     return res.status(200).json({ messages });
@@ -1124,7 +1174,8 @@ io.on("connection", socket => {
               userId,
               text,
               timestamp: new Date(saved.created_at).getTime(),
-              status: 'sent'
+              status: 'sent',
+              seenByUsers: []
             };
             if (incomingConversationId) {
               message.conversationId = conversationId;
@@ -1142,15 +1193,48 @@ io.on("connection", socket => {
           user: username,
           text,
           timestamp: data && data.timestamp ? data.timestamp : Date.now(),
-          status: 'sent'
+          status: 'sent',
+          seenByUsers: []
         };
         io.emit("receive-message", message);
     });
 
     // When a message is seen by another user
-    socket.on("message-seen", data => {
-        // Broadcast to everyone that a specific message's status has changed
-        io.emit("message-status-changed", { id: data.id, status: 'seen' });
+    socket.on("message-seen", async data => {
+        if (!data || !data.id) {
+          return;
+        }
+
+        const viewer = data.viewer && data.viewer.userId ? {
+          userId: String(data.viewer.userId),
+          username: data.viewer.username || 'Unknown',
+          avatarUrl: data.viewer.avatarUrl || null
+        } : null;
+
+        const conversationId = data.conversationId ? Number(data.conversationId) : null;
+
+        const messageId = Number(data.id);
+        const viewerUserId = Number(viewer?.userId);
+        if (Number.isInteger(messageId) && messageId > 0 && Number.isInteger(viewerUserId) && viewerUserId > 0) {
+          try {
+            await db.query(
+              `INSERT INTO message_seen (message_id, user_id, seen_at)
+               VALUES ($1, $2, NOW())
+               ON CONFLICT (message_id, user_id)
+               DO UPDATE SET seen_at = EXCLUDED.seen_at`,
+              [messageId, viewerUserId]
+            );
+          } catch (error) {
+            console.error('Save message seen error:', error);
+          }
+        }
+
+        io.emit("message-status-changed", {
+          id: data.id,
+          status: 'seen',
+          conversationId,
+          viewer
+        });
     });
 
     socket.on("typing", data => {

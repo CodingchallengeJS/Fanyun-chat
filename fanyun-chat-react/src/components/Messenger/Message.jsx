@@ -1,4 +1,5 @@
 import React from 'react';
+import defaultAvatar from '../../assets/default-avatar.svg';
 
 // Helper function to format time
 const formatTime = (ts) => {
@@ -7,9 +8,11 @@ const formatTime = (ts) => {
   return vietnamTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
-// isContinuous prop is added here
-function Message({ msg, username, isContinuous }) {
+function Message({ msg, username, isContinuous, isMostRecentOwnMessage }) {
   const isMe = msg.user === username;
+  const seenByUsers = Array.isArray(msg.seenByUsers) ? msg.seenByUsers : [];
+  const shouldShowSeenReceipts = isMe && seenByUsers.length > 0;
+  const shouldShowStatus = isMe && isMostRecentOwnMessage && !shouldShowSeenReceipts;
 
   // Add the 'continuous' class if the prop is true
   const messageClasses = `message ${isMe ? 'me' : 'other'} ${isContinuous ? 'continuous' : ''}`;
@@ -24,8 +27,23 @@ function Message({ msg, username, isContinuous }) {
         <div className="time">{formatTime(msg.timestamp)}</div>
       </div>
       
-      {/* Display status from the message object */}
-      {isMe && <div className="status">{msg.status}</div>}
+      {shouldShowStatus && <div className="status">{msg.status || 'sent'}</div>}
+      {shouldShowSeenReceipts && (
+        <div className="seen-receipts" aria-label="Seen by">
+          {seenByUsers.map((viewer) => (
+            <img
+              key={viewer.userId}
+              src={viewer.avatarUrl || defaultAvatar}
+              alt={`${viewer.username || 'User'} seen`}
+              className="seen-receipt-avatar"
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = defaultAvatar;
+              }}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };
