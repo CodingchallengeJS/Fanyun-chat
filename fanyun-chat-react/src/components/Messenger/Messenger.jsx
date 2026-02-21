@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import Message from './Message';
 import DateDivider from './DateDivider';
 import ContactList from './ContactList';
@@ -7,6 +7,7 @@ import defaultAvatar from '../../assets/default-avatar.svg';
 import AvatarWithStatus from '../Common/AvatarWithStatus';
 
 const GROUP_TIME = 2 * 60 * 1000;
+const MESSAGE_PAGE_SIZE = 60;
 const GLOBAL_CONTACT = { id: 'global-chat-01', name: 'Global Chat', type: 'group' };
 const PINNED_STORAGE_KEY = 'messengerPinnedConversationKeys';
 
@@ -44,6 +45,8 @@ const formatRelativeTime = (timestamp) => {
 
 function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
   const [messages, setMessages] = useState([]);
+  const [hasMoreBefore, setHasMoreBefore] = useState(true);
+  const [isLoadingOlder, setLoadingOlder] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [activeContact, setActiveContact] = useState(preselectedContact || GLOBAL_CONTACT);
   const [isChatInfoOpen, setChatInfoOpen] = useState(true);
@@ -62,6 +65,8 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
     }
   });
   const chatBodyRef = useRef(null);
+  const shouldAutoScrollRef = useRef(true);
+  const prependScrollRef = useRef(null);
   const searchInputRef = useRef(null);
   const messageNodeMapRef = useRef(new Map());
   const clearHighlightTimeoutRef = useRef(null);
@@ -139,6 +144,73 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
 
     return cloned;
   };
+
+  const fetchMessagePage = useCallback(async (beforeMessage = null) => {
+    const params = new URLSearchParams();
+    params.set('limit', String(MESSAGE_PAGE_SIZE));
+    if (isDirectConversation) {
+      params.set('userId', String(currentUser.id));
+    }
+    if (beforeMessage?.timestamp && beforeMessage?.id) {
+      params.set('beforeTs', String(beforeMessage.timestamp));
+      params.set('beforeId', String(beforeMessage.id));
+    }
+
+    const endpoint = isDirectConversation
+      ? `${import.meta.env.VITE_API_URL}/api/conversations/${activeContact.conversationId}/messages?${params.toString()}`
+      : `${import.meta.env.VITE_API_URL}/api/conversations/global/messages?${params.toString()}`;
+
+    const response = await fetch(endpoint);
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data?.message || 'Failed to load messages.');
+    }
+
+    const incoming = Array.isArray(data.messages) ? data.messages : [];
+    return {
+      messages: incoming
+        .map((msg) => ({
+          ...msg,
+          seenByUsers: Array.isArray(msg.seenByUsers) ? msg.seenByUsers : []
+        }))
+        .sort((a, b) => a.timestamp - b.timestamp),
+      hasMore: Boolean(data.hasMore)
+    };
+  }, [activeContact.conversationId, currentUser.id, isDirectConversation]);
+
+  const loadOlderMessages = useCallback(async () => {
+    if (isLoadingOlder || !hasMoreBefore || messages.length === 0) return;
+    const chatBody = chatBodyRef.current;
+    if (!chatBody) return;
+
+    setLoadingOlder(true);
+    try {
+      const oldestMessage = messages[0];
+      prependScrollRef.current = {
+        previousHeight: chatBody.scrollHeight,
+        previousTop: chatBody.scrollTop
+      };
+
+      const page = await fetchMessagePage(oldestMessage);
+      if (!page.messages.length) {
+        setHasMoreBefore(false);
+        prependScrollRef.current = null;
+        return;
+      }
+
+      shouldAutoScrollRef.current = false;
+      setHasMoreBefore(page.hasMore);
+      setMessages((prev) => {
+        const existing = new Set(prev.map((m) => String(m.id)));
+        const olderOnly = page.messages.filter((m) => !existing.has(String(m.id)));
+        return [...olderOnly, ...prev];
+      });
+    } catch {
+      prependScrollRef.current = null;
+    } finally {
+      setLoadingOlder(false);
+    }
+  }, [fetchMessagePage, hasMoreBefore, isLoadingOlder, messages]);
 
   useEffect(() => {
     const applySeenUpdate = (previous, payload) => {
@@ -232,28 +304,15 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
   useEffect(() => {
     let isActive = true;
 
-    const loadMessages = async () => {
+    const loadInitialPage = async () => {
       try {
-        const endpoint = isDirectConversation
-          ? `${import.meta.env.VITE_API_URL}/api/conversations/${activeContact.conversationId}/messages?userId=${currentUser.id}`
-          : `${import.meta.env.VITE_API_URL}/api/conversations/global/messages`;
-
-        const response = await fetch(endpoint);
-        const data = await response.json();
-        if (!response.ok) {
-          return;
-        }
+        const page = await fetchMessagePage();
         if (!isActive) return;
 
-        const incoming = Array.isArray(data.messages) ? data.messages : [];
-        const normalizedMessages = incoming
-          .map((msg) => ({
-            ...msg,
-            seenByUsers: Array.isArray(msg.seenByUsers) ? msg.seenByUsers : []
-          }))
-          .sort((a, b) => a.timestamp - b.timestamp);
-        const collapsedMessages = collapseSeenReceiptsToLatest(normalizedMessages);
-
+        const collapsedMessages = collapseSeenReceiptsToLatest(page.messages);
+        shouldAutoScrollRef.current = true;
+        prependScrollRef.current = null;
+        setHasMoreBefore(page.hasMore);
         setMessages(collapsedMessages);
 
         const currentUserId = String(currentUser.id);
@@ -279,12 +338,12 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
       }
     };
 
-    loadMessages();
+    loadInitialPage();
 
     return () => {
       isActive = false;
     };
-  }, [activeContact?.conversationId, currentUser.avatarUrl, currentUser.id, currentUser.lastLogin, currentUser.username, isDirectConversation]);
+  }, [activeContact?.conversationId, currentUser.avatarUrl, currentUser.id, currentUser.lastLogin, currentUser.username, fetchMessagePage, isDirectConversation]);
 
   useEffect(() => {
     try {
@@ -308,9 +367,37 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
   }, []);
 
   useEffect(() => {
-    if (chatBodyRef.current) {
-      chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
+    const chatBody = chatBodyRef.current;
+    if (!chatBody) return;
+
+    const onScroll = () => {
+      if (chatBody.scrollTop <= 40) {
+        loadOlderMessages();
+      }
+    };
+
+    chatBody.addEventListener('scroll', onScroll);
+    return () => {
+      chatBody.removeEventListener('scroll', onScroll);
+    };
+  }, [loadOlderMessages]);
+
+  useEffect(() => {
+    const chatBody = chatBodyRef.current;
+    if (!chatBody) return;
+
+    if (prependScrollRef.current) {
+      const { previousHeight, previousTop } = prependScrollRef.current;
+      const delta = chatBody.scrollHeight - previousHeight;
+      chatBody.scrollTop = previousTop + delta;
+      prependScrollRef.current = null;
+      return;
     }
+
+    if (shouldAutoScrollRef.current) {
+      chatBody.scrollTop = chatBody.scrollHeight;
+    }
+    shouldAutoScrollRef.current = true;
   }, [messages]);
 
   const sendMessage = () => {

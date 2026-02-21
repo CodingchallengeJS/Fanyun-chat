@@ -1157,9 +1157,23 @@ app.get('/api/conversations', async (req, res) => {
 
 app.get('/api/conversations/global/messages', async (req, res) => {
   const limitRaw = req.query.limit;
-  const limit = Number.isInteger(Number(limitRaw)) ? Math.max(1, Math.min(500, Number(limitRaw))) : 200;
+  const limit = Number.isInteger(Number(limitRaw)) ? Math.max(1, Math.min(200, Number(limitRaw))) : 60;
+  const beforeTsRaw = Number(req.query.beforeTs);
+  const beforeIdRaw = Number(req.query.beforeId);
+  const hasCursor = Number.isFinite(beforeTsRaw) && Number.isFinite(beforeIdRaw);
+
   try {
     const conversationId = await getGlobalConversationId();
+    const queryParams = [conversationId];
+    let cursorClause = '';
+    if (hasCursor) {
+      const beforeDateIso = new Date(beforeTsRaw).toISOString();
+      queryParams.push(beforeDateIso, beforeIdRaw);
+      cursorClause = `AND (m.created_at, m.id) < ($2::timestamp, $3::int)`;
+    }
+    queryParams.push(limit);
+
+    const limitParamIndex = queryParams.length;
     const { rows } = await db.query(
       `SELECT m.id,
               m.content,
@@ -1183,13 +1197,15 @@ app.get('/api/conversations/global/messages', async (req, res) => {
        LEFT JOIN message_seen ms ON ms.message_id = m.id
        LEFT JOIN accounts seen_user ON seen_user.id = ms.user_id
        WHERE m.conversation_id = $1
+         ${cursorClause}
        GROUP BY m.id, m.content, m.created_at, a.username, a.id, a.last_login, m.sender_id
-       ORDER BY m.created_at ASC
-       LIMIT $2`,
-      [conversationId, limit]
+       ORDER BY m.created_at DESC, m.id DESC
+       LIMIT $${limitParamIndex}`,
+      queryParams
     );
 
-    const messages = rows.map(row => ({
+    const messages = rows
+      .map(row => ({
       id: row.id,
       user: row.username,
       userId: row.user_id,
@@ -1198,9 +1214,13 @@ app.get('/api/conversations/global/messages', async (req, res) => {
       timestamp: new Date(row.created_at).getTime(),
       status: 'sent',
       seenByUsers: Array.isArray(row.seen_by_users) ? row.seen_by_users : []
-    }));
+      }))
+      .reverse();
 
-    res.status(200).json({ messages });
+    res.status(200).json({
+      messages,
+      hasMore: rows.length === limit
+    });
   } catch (error) {
     console.error('Fetch messages error:', error);
     res.status(500).json({ message: 'Internal server error.' });
@@ -1211,7 +1231,10 @@ app.get('/api/conversations/:id/messages', async (req, res) => {
   const conversationId = Number(req.params.id);
   const userId = Number(req.query.userId);
   const limitRaw = req.query.limit;
-  const limit = Number.isInteger(Number(limitRaw)) ? Math.max(1, Math.min(500, Number(limitRaw))) : 200;
+  const limit = Number.isInteger(Number(limitRaw)) ? Math.max(1, Math.min(200, Number(limitRaw))) : 60;
+  const beforeTsRaw = Number(req.query.beforeTs);
+  const beforeIdRaw = Number(req.query.beforeId);
+  const hasCursor = Number.isFinite(beforeTsRaw) && Number.isFinite(beforeIdRaw);
 
   if (!conversationId || !userId) {
     return res.status(400).json({ message: 'conversation id and userId are required.' });
@@ -1230,6 +1253,16 @@ app.get('/api/conversations/:id/messages', async (req, res) => {
       return res.status(403).json({ message: 'You are not a member of this conversation.' });
     }
 
+    const queryParams = [conversationId];
+    let cursorClause = '';
+    if (hasCursor) {
+      const beforeDateIso = new Date(beforeTsRaw).toISOString();
+      queryParams.push(beforeDateIso, beforeIdRaw);
+      cursorClause = `AND (m.created_at, m.id) < ($2::timestamp, $3::int)`;
+    }
+    queryParams.push(limit);
+
+    const limitParamIndex = queryParams.length;
     const { rows } = await db.query(
       `SELECT m.id,
               m.content,
@@ -1253,13 +1286,15 @@ app.get('/api/conversations/:id/messages', async (req, res) => {
        LEFT JOIN message_seen ms ON ms.message_id = m.id
        LEFT JOIN accounts seen_user ON seen_user.id = ms.user_id
        WHERE m.conversation_id = $1
+         ${cursorClause}
        GROUP BY m.id, m.content, m.created_at, a.username, a.id, a.last_login, m.sender_id
-       ORDER BY m.created_at ASC
-       LIMIT $2`,
-      [conversationId, limit]
+       ORDER BY m.created_at DESC, m.id DESC
+       LIMIT $${limitParamIndex}`,
+      queryParams
     );
 
-    const messages = rows.map((row) => ({
+    const messages = rows
+      .map((row) => ({
       id: row.id,
       conversationId,
       user: row.username,
@@ -1269,9 +1304,13 @@ app.get('/api/conversations/:id/messages', async (req, res) => {
       timestamp: new Date(row.created_at).getTime(),
       status: 'sent',
       seenByUsers: Array.isArray(row.seen_by_users) ? row.seen_by_users : []
-    }));
+      }))
+      .reverse();
 
-    return res.status(200).json({ messages });
+    return res.status(200).json({
+      messages,
+      hasMore: rows.length === limit
+    });
   } catch (error) {
     console.error('Fetch direct messages error:', error);
     return res.status(500).json({ message: 'Internal server error.' });
