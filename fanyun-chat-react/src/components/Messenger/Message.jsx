@@ -1,5 +1,6 @@
 import React from 'react';
 import defaultAvatar from '../../assets/default-avatar.svg';
+import AvatarWithStatus from '../Common/AvatarWithStatus';
 
 // Helper function to format time
 const formatTime = (ts) => {
@@ -31,15 +32,13 @@ function Message({ msg, username, isContinuous, isMostRecentOwnMessage }) {
       {shouldShowSeenReceipts && (
         <div className="seen-receipts" aria-label="Seen by">
           {seenByUsers.map((viewer) => (
-            <img
+            <AvatarWithStatus
               key={viewer.userId}
               src={viewer.avatarUrl || defaultAvatar}
               alt={`${viewer.username || 'User'} seen`}
               className="seen-receipt-avatar"
-              onError={(e) => {
-                e.currentTarget.onerror = null;
-                e.currentTarget.src = defaultAvatar;
-              }}
+              wrapperClassName="seen-receipt-avatar-wrap"
+              lastLogin={viewer.lastLogin}
             />
           ))}
         </div>

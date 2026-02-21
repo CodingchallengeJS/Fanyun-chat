@@ -4,6 +4,7 @@ import DateDivider from './DateDivider';
 import ContactList from './ContactList';
 import socket from '../../lib/socket';
 import defaultAvatar from '../../assets/default-avatar.svg';
+import AvatarWithStatus from '../Common/AvatarWithStatus';
 
 const GROUP_TIME = 2 * 60 * 1000;
 const GLOBAL_CONTACT = { id: 'global-chat-01', name: 'Global Chat', type: 'group' };
@@ -103,12 +104,21 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
         return {
           id: msg.id,
           avatar,
+          lastLogin: msg.userLastLogin || (fromCurrentUser ? currentUser.lastLogin : activeContact.lastLogin) || null,
           username: msg.user || 'Unknown',
           text: msg.text || '',
           relativeTime: formatRelativeTime(msg.timestamp)
         };
       });
-  }, [activeContact.avatar, activeContact.avatarUrl, currentUser.avatarUrl, currentUser.username, searchedMessages]);
+  }, [
+    activeContact.avatar,
+    activeContact.avatarUrl,
+    activeContact.lastLogin,
+    currentUser.avatarUrl,
+    currentUser.lastLogin,
+    currentUser.username,
+    searchedMessages
+  ]);
   const collapseSeenReceiptsToLatest = (messageList) => {
     const latestSeenByUser = new Map();
     const cloned = messageList.map((msg) => ({ ...msg, seenByUsers: [] }));
@@ -139,7 +149,8 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
       const normalizedViewer = {
         userId: String(payload.viewer.userId),
         username: payload.viewer.username || 'Unknown',
-        avatarUrl: payload.viewer.avatarUrl || null
+        avatarUrl: payload.viewer.avatarUrl || null,
+        lastLogin: payload.viewer.lastLogin || null
       };
 
       const removedPreviousSeen = previous.map((msg) => {
@@ -182,7 +193,8 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
           viewer: {
             userId: currentUser.id,
             username: currentUser.username,
-            avatarUrl: currentUser.avatarUrl || null
+            avatarUrl: currentUser.avatarUrl || null,
+            lastLogin: currentUser.lastLogin || null
           }
         });
       }
@@ -215,7 +227,7 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
       socket.off('receive-message', onReceiveMessage);
       socket.off('message-status-changed', onStatusChanged);
     };
-  }, [activeContact?.conversationId, currentUser.avatarUrl, currentUser.id, currentUser.username, isDirectConversation]);
+  }, [activeContact?.conversationId, currentUser.avatarUrl, currentUser.id, currentUser.lastLogin, currentUser.username, isDirectConversation]);
 
   useEffect(() => {
     let isActive = true;
@@ -257,7 +269,8 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
             viewer: {
               userId: currentUser.id,
               username: currentUser.username,
-              avatarUrl: currentUser.avatarUrl || null
+              avatarUrl: currentUser.avatarUrl || null,
+              lastLogin: currentUser.lastLogin || null
             }
           });
         });
@@ -271,7 +284,7 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
     return () => {
       isActive = false;
     };
-  }, [activeContact?.conversationId, currentUser.avatarUrl, currentUser.id, currentUser.username, isDirectConversation]);
+  }, [activeContact?.conversationId, currentUser.avatarUrl, currentUser.id, currentUser.lastLogin, currentUser.username, isDirectConversation]);
 
   useEffect(() => {
     try {
@@ -413,27 +426,23 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
                   onClick={handleOpenActiveProfile}
                   aria-label={`Open ${activeContact.name || 'user'} profile`}
                 >
-                  <img
+                  <AvatarWithStatus
                     src={headerAvatar}
                     alt={`${activeContact.name || 'User'} avatar`}
                     className="chat-header-avatar"
-                    onError={(e) => {
-                      e.currentTarget.onerror = null;
-                      e.currentTarget.src = defaultAvatar;
-                    }}
+                    wrapperClassName="chat-header-avatar-wrap"
+                    lastLogin={activeContact.lastLogin}
                   />
                   <span className="chat-header-name"><b>{activeContact.name}</b></span>
                 </button>
               ) : (
                 <div className="chat-header-contact-static">
-                  <img
+                  <AvatarWithStatus
                     src={headerAvatar}
                     alt={`${activeContact.name || 'Chat'} avatar`}
                     className="chat-header-avatar"
-                    onError={(e) => {
-                      e.currentTarget.onerror = null;
-                      e.currentTarget.src = defaultAvatar;
-                    }}
+                    wrapperClassName="chat-header-avatar-wrap"
+                    lastLogin={activeContact.lastLogin}
                   />
                   <span className="chat-header-name"><b>{activeContact.name}</b></span>
                 </div>
@@ -563,14 +572,12 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
                       key={item.id}
                       onClick={() => handleSearchResultClick(item.id)}
                     >
-                      <img
+                      <AvatarWithStatus
                         src={item.avatar}
                         alt={`${item.username} avatar`}
                         className="chat-search-result-avatar"
-                        onError={(e) => {
-                          e.currentTarget.onerror = null;
-                          e.currentTarget.src = defaultAvatar;
-                        }}
+                        wrapperClassName="chat-search-result-avatar-wrap"
+                        lastLogin={item.lastLogin}
                       />
                       <div className="chat-search-result-content">
                         <div className="chat-search-result-top">
@@ -586,14 +593,12 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
             ) : (
               <>
                 <div className="chat-info-profile">
-                  <img
+                  <AvatarWithStatus
                     src={headerAvatar}
                     alt={`${activeContact.name || 'Chat'} avatar`}
                     className="chat-info-avatar"
-                    onError={(e) => {
-                      e.currentTarget.onerror = null;
-                      e.currentTarget.src = defaultAvatar;
-                    }}
+                    wrapperClassName="chat-info-avatar-wrap"
+                    lastLogin={activeContact.lastLogin}
                   />
                   <h3 className="chat-info-name">{activeContact.name || 'Unknown'}</h3>
                 </div>

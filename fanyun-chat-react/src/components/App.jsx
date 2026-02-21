@@ -38,6 +38,56 @@ function App() {
     return undefined;
   }, [themeMode]);
 
+  useEffect(() => {
+    if (!user?.id || user?.isGuest) return undefined;
+
+    const apiBase = import.meta.env.VITE_API_URL;
+    let intervalId = null;
+
+    const sendPresence = async () => {
+      if (document.visibilityState !== 'visible' || !document.hasFocus()) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${apiBase}/api/users/${user.id}/presence`, {
+          method: 'POST'
+        });
+        const data = await response.json();
+        if (!response.ok || !data?.lastLogin) return;
+
+        setUser((prev) => {
+          if (!prev || prev.id !== user.id) return prev;
+          return { ...prev, lastLogin: data.lastLogin };
+        });
+      } catch {
+        // Ignore transient presence-update errors.
+      }
+    };
+
+    const onFocus = () => {
+      sendPresence();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        sendPresence();
+      }
+    };
+
+    sendPresence();
+    intervalId = window.setInterval(sendPresence, 60 * 1000);
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      if (intervalId) {
+        window.clearInterval(intervalId);
+      }
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [user?.id, user?.isGuest]);
+
   const handleLoginSuccess = (userData) => {
     setUser(userData);
   };
@@ -46,7 +96,8 @@ function App() {
     // Create a temporary guest user object
     const guestUser = {
       username: `Guest-${Math.floor(Math.random() * 1000)}`,
-      isGuest: true
+      isGuest: true,
+      lastLogin: null
     };
     setUser(guestUser);
   };

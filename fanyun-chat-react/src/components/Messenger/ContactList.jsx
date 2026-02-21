@@ -58,7 +58,8 @@ function ContactList({ onContactSelect, currentUser, preselectedContact, pinnedC
         const incoming = Array.isArray(data.conversations) ? data.conversations : [];
         const normalized = incoming.map((item) => ({
           ...item,
-          avatar: item.avatarUrl || defaultAvatar
+          avatar: item.avatarUrl || defaultAvatar,
+          lastLogin: item.lastLogin || null
         }));
 
         setContacts((prev) => {
@@ -131,6 +132,7 @@ function ContactList({ onContactSelect, currentUser, preselectedContact, pinnedC
           {
             ...preselectedContact,
             avatar: preselectedContact.avatarUrl || defaultAvatar,
+            lastLogin: preselectedContact.lastLogin || null,
             lastMessage: preselectedContact.lastMessage || 'No messages yet.'
           },
           ...prev

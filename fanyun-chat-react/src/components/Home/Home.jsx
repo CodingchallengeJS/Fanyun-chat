@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import defaultAvatar from '../../assets/default-avatar.svg';
+import AvatarWithStatus from '../Common/AvatarWithStatus';
 
 const POST_PREVIEW_LENGTH = 220;
 
@@ -314,14 +315,12 @@ function Home({ currentUser, onOpenProfile }) {
                     disabled={!post.author?.id}
                     aria-label={`Open ${post.author?.username || 'user'} profile`}
                   >
-                    <img
+                    <AvatarWithStatus
                       src={post.author?.avatarUrl || defaultAvatar}
                       alt={`${post.author?.username || 'User'} avatar`}
                       className="feed-post-avatar"
-                      onError={(e) => {
-                        e.currentTarget.onerror = null;
-                        e.currentTarget.src = defaultAvatar;
-                      }}
+                      wrapperClassName="feed-post-avatar-wrap"
+                      lastLogin={post.author?.lastLogin}
                     />
                   </button>
                   <div className="feed-post-header-text">
@@ -384,14 +383,12 @@ function Home({ currentUser, onOpenProfile }) {
                 className="home-contact-item"
                 onClick={() => onOpenProfile?.(contact.id)}
               >
-                <img
+                <AvatarWithStatus
                   src={contact.avatarUrl || defaultAvatar}
                   alt={`${contact.username} avatar`}
                   className="home-contact-avatar"
-                  onError={(e) => {
-                    e.currentTarget.onerror = null;
-                    e.currentTarget.src = defaultAvatar;
-                  }}
+                  wrapperClassName="home-contact-avatar-wrap"
+                  lastLogin={contact.lastLogin}
                 />
                 <div className="home-contact-details">
                   <div className="home-contact-main">
@@ -411,14 +408,12 @@ function Home({ currentUser, onOpenProfile }) {
               onClick={() => onOpenProfile?.(currentUser?.id)}
               disabled={!currentUser?.id}
             >
-              <img
+              <AvatarWithStatus
                 src={currentUser?.avatarUrl || defaultAvatar}
                 alt={`${currentUser?.username || 'My'} avatar`}
                 className="home-contact-avatar"
-                onError={(e) => {
-                  e.currentTarget.onerror = null;
-                  e.currentTarget.src = defaultAvatar;
-                }}
+                wrapperClassName="home-contact-avatar-wrap"
+                lastLogin={currentUser?.lastLogin}
               />
               <div className="home-contact-details">
                 <div className="home-contact-main">
@@ -455,14 +450,12 @@ function Home({ currentUser, onOpenProfile }) {
                   disabled={!commentPost.author?.id}
                   aria-label={`Open ${commentPost.author?.username || 'user'} profile`}
                 >
-                  <img
+                  <AvatarWithStatus
                     src={commentPost.author?.avatarUrl || defaultAvatar}
                     alt={`${commentPost.author?.username || 'User'} avatar`}
                     className="feed-post-avatar"
-                    onError={(e) => {
-                      e.currentTarget.onerror = null;
-                      e.currentTarget.src = defaultAvatar;
-                    }}
+                    wrapperClassName="feed-post-avatar-wrap"
+                    lastLogin={commentPost.author?.lastLogin}
                   />
                 </button>
                 <div className="feed-post-header-text">
@@ -514,14 +507,12 @@ function Home({ currentUser, onOpenProfile }) {
                     }}
                     aria-label={`Open ${comment.author?.username || 'user'} profile`}
                   >
-                    <img
+                    <AvatarWithStatus
                       src={comment.author?.avatarUrl || defaultAvatar}
                       alt={`${comment.author?.username || 'User'} avatar`}
                       className="comment-avatar"
-                      onError={(e) => {
-                        e.currentTarget.onerror = null;
-                        e.currentTarget.src = defaultAvatar;
-                      }}
+                      wrapperClassName="comment-avatar-wrap"
+                      lastLogin={comment.author?.lastLogin}
                     />
                   </button>
                   <div className="comment-body">

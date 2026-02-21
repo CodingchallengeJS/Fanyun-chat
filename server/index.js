@@ -21,6 +21,18 @@ function normalizePasswordInput(rawPassword) {
   return `${String(rawPassword || '')}${PASSWORD_PEPPER}`;
 }
 
+async function touchUserLastLogin(userId) {
+  const uid = Number(userId);
+  if (!Number.isInteger(uid) || uid <= 0) {
+    return null;
+  }
+  const { rows } = await db.query(
+    'UPDATE accounts SET last_login = NOW() WHERE id = $1 RETURNING last_login',
+    [uid]
+  );
+  return rows[0]?.last_login || null;
+}
+
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -36,6 +48,11 @@ let globalConversationId = null;
 let globalConversationInit = null;
 
 async function ensureSocialTables() {
+  await db.query(`
+    ALTER TABLE accounts
+    ADD COLUMN IF NOT EXISTS last_login TIMESTAMP;
+  `);
+
   await db.query(`
     CREATE TABLE IF NOT EXISTS friendships (
       user_id INT REFERENCES accounts(id),
@@ -199,7 +216,7 @@ app.post('/api/posts', async (req, res) => {
 
     const inserted = rows[0];
     const authorResult = await db.query(
-      'SELECT username, avatar_url FROM accounts WHERE id = $1',
+      'SELECT username, avatar_url, last_login FROM accounts WHERE id = $1',
       [authorId]
     );
 
@@ -211,7 +228,8 @@ app.post('/api/posts', async (req, res) => {
         author: {
           id: inserted.author_id,
           username: authorResult.rows[0]?.username || 'Unknown',
-          avatarUrl: authorResult.rows[0]?.avatar_url || null
+          avatarUrl: authorResult.rows[0]?.avatar_url || null,
+          lastLogin: authorResult.rows[0]?.last_login || null
         },
         isFriend: false,
         reactionCount: 0,
@@ -245,7 +263,7 @@ app.get('/api/feed', async (req, res) => {
 
     if (friendIds.length > 0) {
       const friendResult = await db.query(
-        `SELECT p.id, p.content, p.created_at, a.id AS author_id, a.username, a.avatar_url
+        `SELECT p.id, p.content, p.created_at, a.id AS author_id, a.username, a.avatar_url, a.last_login
          FROM posts p
          JOIN accounts a ON a.id = p.author_id
          WHERE p.author_id = ANY($1::int[])
@@ -256,7 +274,7 @@ app.get('/api/feed', async (req, res) => {
       friendPosts = friendResult.rows;
 
       const strangerResult = await db.query(
-        `SELECT p.id, p.content, p.created_at, a.id AS author_id, a.username, a.avatar_url
+        `SELECT p.id, p.content, p.created_at, a.id AS author_id, a.username, a.avatar_url, a.last_login
          FROM posts p
          JOIN accounts a ON a.id = p.author_id
          WHERE p.author_id <> $1
@@ -268,7 +286,7 @@ app.get('/api/feed', async (req, res) => {
       strangerPosts = strangerResult.rows;
     } else {
       const strangerOnlyResult = await db.query(
-        `SELECT p.id, p.content, p.created_at, a.id AS author_id, a.username, a.avatar_url
+        `SELECT p.id, p.content, p.created_at, a.id AS author_id, a.username, a.avatar_url, a.last_login
          FROM posts p
          JOIN accounts a ON a.id = p.author_id
          WHERE p.author_id <> $1
@@ -293,7 +311,8 @@ app.get('/api/feed', async (req, res) => {
         author: {
           id: row.author_id,
           username: row.username,
-          avatarUrl: row.avatar_url
+          avatarUrl: row.avatar_url,
+          lastLogin: row.last_login
         },
         isFriend: friendIdSet.has(Number(row.author_id)),
         reactionCount: reactionCountByPost.get(Number(row.id)) || 0,
@@ -408,7 +427,7 @@ app.get('/api/posts/:id/comments', async (req, res) => {
     }
 
     const commentsResult = await db.query(
-      `SELECT c.id, c.content, c.created_at, a.id AS author_id, a.username, a.avatar_url
+      `SELECT c.id, c.content, c.created_at, a.id AS author_id, a.username, a.avatar_url, a.last_login
        FROM comments c
        JOIN accounts a ON a.id = c.author_id
        WHERE c.post_id = $1
@@ -425,7 +444,8 @@ app.get('/api/posts/:id/comments', async (req, res) => {
         author: {
           id: row.author_id,
           username: row.username,
-          avatarUrl: row.avatar_url
+          avatarUrl: row.avatar_url,
+          lastLogin: row.last_login
         }
       }))
     });
@@ -447,7 +467,7 @@ app.post('/api/posts/:id/comments', async (req, res) => {
   try {
     const [postResult, authorResult] = await Promise.all([
       db.query('SELECT id FROM posts WHERE id = $1 LIMIT 1', [postId]),
-      db.query('SELECT id, username, avatar_url FROM accounts WHERE id = $1 LIMIT 1', [authorId])
+      db.query('SELECT id, username, avatar_url, last_login FROM accounts WHERE id = $1 LIMIT 1', [authorId])
     ]);
 
     if (postResult.rows.length === 0) {
@@ -479,7 +499,8 @@ app.post('/api/posts/:id/comments', async (req, res) => {
         author: {
           id: authorResult.rows[0].id,
           username: authorResult.rows[0].username,
-          avatarUrl: authorResult.rows[0].avatar_url
+          avatarUrl: authorResult.rows[0].avatar_url,
+          lastLogin: authorResult.rows[0].last_login
         }
       },
       commentCount: Number(commentCountResult.rows[0]?.count || 0)
@@ -501,7 +522,7 @@ app.get('/api/users/discovery', async (req, res) => {
   try {
     if (!query) {
       const { rows } = await db.query(
-        `SELECT a.id, a.username, a.email, a.avatar_url
+        `SELECT a.id, a.username, a.email, a.avatar_url, a.last_login
          FROM friendships f
          JOIN accounts a
            ON a.id = CASE WHEN f.user_id = $1 THEN f.friend_id ELSE f.user_id END
@@ -518,6 +539,7 @@ app.get('/api/users/discovery', async (req, res) => {
           username: row.username,
           email: row.email,
           avatarUrl: row.avatar_url,
+          lastLogin: row.last_login,
           relation: 'friend'
         }))
       });
@@ -525,7 +547,7 @@ app.get('/api/users/discovery', async (req, res) => {
 
     const searchTerm = `%${query}%`;
     const candidatesResult = await db.query(
-      `SELECT id, username, email, avatar_url
+      `SELECT id, username, email, avatar_url, last_login
        FROM accounts
        WHERE id <> $1
          AND (username ILIKE $2 OR email ILIKE $2)
@@ -560,6 +582,7 @@ app.get('/api/users/discovery', async (req, res) => {
         username: row.username,
         email: row.email,
         avatarUrl: row.avatar_url,
+        lastLogin: row.last_login,
         relation: relationMap.get(Number(row.id)) || 'none'
       }))
       .sort((a, b) => {
@@ -586,7 +609,7 @@ app.get('/api/users/:id/profile', async (req, res) => {
 
   try {
     const userResult = await db.query(
-      'SELECT id, username, email, avatar_url FROM accounts WHERE id = $1',
+      'SELECT id, username, email, avatar_url, last_login FROM accounts WHERE id = $1',
       [targetUserId]
     );
     if (userResult.rows.length === 0) {
@@ -629,7 +652,8 @@ app.get('/api/users/:id/profile', async (req, res) => {
         id: userResult.rows[0].id,
         username: userResult.rows[0].username,
         email: userResult.rows[0].email,
-        avatarUrl: userResult.rows[0].avatar_url
+        avatarUrl: userResult.rows[0].avatar_url,
+        lastLogin: userResult.rows[0].last_login
       },
       friendshipStatus,
       posts: postRows.map((row) => ({
@@ -746,7 +770,7 @@ app.post('/api/chats/direct', async (req, res) => {
     }
 
     const targetUser = await db.query(
-      'SELECT id, username, avatar_url FROM accounts WHERE id = $1 LIMIT 1',
+      'SELECT id, username, avatar_url, last_login FROM accounts WHERE id = $1 LIMIT 1',
       [targetUserId]
     );
 
@@ -757,7 +781,8 @@ app.post('/api/chats/direct', async (req, res) => {
         contact: {
           id: targetUser.rows[0]?.id || targetUserId,
           name: targetUser.rows[0]?.username || 'Unknown',
-          avatarUrl: targetUser.rows[0]?.avatar_url || null
+          avatarUrl: targetUser.rows[0]?.avatar_url || null,
+          lastLogin: targetUser.rows[0]?.last_login || null
         }
       }
     });
@@ -860,13 +885,16 @@ app.post('/api/login', async (req, res) => {
     });
 
     // 4. Send back user info (without the password hash)
+    const lastLogin = await touchUserLastLogin(user.id);
+
     res.status(200).json({
       message: 'Login successful!',
       user: {
         id: user.id,
         username: user.username,
         email: user.email,
-        avatarUrl: user.avatar_url || null
+        avatarUrl: user.avatar_url || null,
+        lastLogin
       },
       token // Send the token to the client
     });
@@ -915,6 +943,26 @@ app.post('/api/users/:id/avatar', async (req, res) => {
   }
 });
 
+app.post('/api/users/:id/presence', async (req, res) => {
+  const userId = Number(req.params.id);
+  if (!Number.isInteger(userId) || userId <= 0) {
+    return res.status(400).json({ message: 'Valid user id is required.' });
+  }
+
+  try {
+    const accountResult = await db.query('SELECT id FROM accounts WHERE id = $1 LIMIT 1', [userId]);
+    if (accountResult.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    const lastLogin = await touchUserLastLogin(userId);
+    return res.status(200).json({ lastLogin });
+  } catch (error) {
+    console.error('Presence update error:', error);
+    return res.status(500).json({ message: 'Failed to update presence.' });
+  }
+});
+
 app.get('/api/conversations', async (req, res) => {
   const userId = Number(req.query.userId);
 
@@ -941,6 +989,7 @@ app.get('/api/conversations', async (req, res) => {
          a.id AS contact_id,
          a.username AS contact_username,
          a.avatar_url AS contact_avatar_url,
+         a.last_login AS contact_last_login,
          lm.content AS last_message,
          lm.sender_username AS last_message_sender_username,
          lm.created_at AS last_message_at
@@ -985,6 +1034,7 @@ app.get('/api/conversations', async (req, res) => {
         contactUserId: row.contact_id,
         name: row.contact_username,
         avatarUrl: row.contact_avatar_url,
+        lastLogin: row.contact_last_login,
         lastMessage: row.last_message
           ? `${row.last_message_sender_username}: ${row.last_message}`
           : 'No messages yet.',
@@ -1010,12 +1060,14 @@ app.get('/api/conversations/global/messages', async (req, res) => {
               m.created_at,
               a.username,
               a.id AS user_id,
+              a.last_login AS user_last_login,
               COALESCE(
                 json_agg(
                   DISTINCT jsonb_build_object(
                     'userId', seen_user.id,
                     'username', seen_user.username,
-                    'avatarUrl', seen_user.avatar_url
+                    'avatarUrl', seen_user.avatar_url,
+                    'lastLogin', seen_user.last_login
                   )
                 ) FILTER (WHERE seen_user.id IS NOT NULL AND seen_user.id <> m.sender_id),
                 '[]'::json
@@ -1025,7 +1077,7 @@ app.get('/api/conversations/global/messages', async (req, res) => {
        LEFT JOIN message_seen ms ON ms.message_id = m.id
        LEFT JOIN accounts seen_user ON seen_user.id = ms.user_id
        WHERE m.conversation_id = $1
-       GROUP BY m.id, m.content, m.created_at, a.username, a.id, m.sender_id
+       GROUP BY m.id, m.content, m.created_at, a.username, a.id, a.last_login, m.sender_id
        ORDER BY m.created_at ASC
        LIMIT $2`,
       [conversationId, limit]
@@ -1035,6 +1087,7 @@ app.get('/api/conversations/global/messages', async (req, res) => {
       id: row.id,
       user: row.username,
       userId: row.user_id,
+      userLastLogin: row.user_last_login,
       text: row.content,
       timestamp: new Date(row.created_at).getTime(),
       status: 'sent',
@@ -1077,12 +1130,14 @@ app.get('/api/conversations/:id/messages', async (req, res) => {
               m.created_at,
               a.username,
               a.id AS user_id,
+              a.last_login AS user_last_login,
               COALESCE(
                 json_agg(
                   DISTINCT jsonb_build_object(
                     'userId', seen_user.id,
                     'username', seen_user.username,
-                    'avatarUrl', seen_user.avatar_url
+                    'avatarUrl', seen_user.avatar_url,
+                    'lastLogin', seen_user.last_login
                   )
                 ) FILTER (WHERE seen_user.id IS NOT NULL AND seen_user.id <> m.sender_id),
                 '[]'::json
@@ -1092,7 +1147,7 @@ app.get('/api/conversations/:id/messages', async (req, res) => {
        LEFT JOIN message_seen ms ON ms.message_id = m.id
        LEFT JOIN accounts seen_user ON seen_user.id = ms.user_id
        WHERE m.conversation_id = $1
-       GROUP BY m.id, m.content, m.created_at, a.username, a.id, m.sender_id
+       GROUP BY m.id, m.content, m.created_at, a.username, a.id, a.last_login, m.sender_id
        ORDER BY m.created_at ASC
        LIMIT $2`,
       [conversationId, limit]
@@ -1103,6 +1158,7 @@ app.get('/api/conversations/:id/messages', async (req, res) => {
       conversationId,
       user: row.username,
       userId: row.user_id,
+      userLastLogin: row.user_last_login,
       text: row.content,
       timestamp: new Date(row.created_at).getTime(),
       status: 'sent',

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import defaultAvatar from '../../assets/default-avatar.svg';
+import AvatarWithStatus from '../Common/AvatarWithStatus';
 
 const POST_PREVIEW_LENGTH = 220;
 
@@ -201,7 +202,8 @@ function Profile({ isActive, onClose, user, onUserUpdate, targetUserId, onOpenCh
         conversationId: conversation.id,
         contactUserId: conversation.contact?.id || profileUser.id,
         name: conversation.contact?.name || profileUser.username,
-        avatarUrl: conversation.contact?.avatarUrl || profileUser.avatarUrl || null
+        avatarUrl: conversation.contact?.avatarUrl || profileUser.avatarUrl || null,
+        lastLogin: conversation.contact?.lastLogin || profileUser.lastLogin || null
       });
       onClose?.();
     } catch (err) {
@@ -237,7 +239,8 @@ function Profile({ isActive, onClose, user, onUserUpdate, targetUserId, onOpenCh
       author: {
         id: profileAuthor?.id || targetUserId || null,
         username: profileAuthor?.username || 'Unknown',
-        avatarUrl: profileAuthor?.avatarUrl || null
+        avatarUrl: profileAuthor?.avatarUrl || null,
+        lastLogin: profileAuthor?.lastLogin || null
       },
       isFriend: profileData?.friendshipStatus === 'friend'
     };
@@ -538,14 +541,12 @@ function Profile({ isActive, onClose, user, onUserUpdate, targetUserId, onOpenCh
                   disabled={!commentPost.author?.id}
                   aria-label={`Open ${commentPost.author?.username || 'user'} profile`}
                 >
-                  <img
+                  <AvatarWithStatus
                     src={commentPost.author?.avatarUrl || defaultAvatar}
                     alt={`${commentPost.author?.username || 'User'} avatar`}
                     className="feed-post-avatar"
-                    onError={(e) => {
-                      e.currentTarget.onerror = null;
-                      e.currentTarget.src = defaultAvatar;
-                    }}
+                    wrapperClassName="feed-post-avatar-wrap"
+                    lastLogin={commentPost.author?.lastLogin}
                   />
                 </button>
                 <div className="feed-post-header-text">
@@ -596,14 +597,12 @@ function Profile({ isActive, onClose, user, onUserUpdate, targetUserId, onOpenCh
                     }}
                     aria-label={`Open ${comment.author?.username || 'user'} profile`}
                   >
-                    <img
+                    <AvatarWithStatus
                       src={comment.author?.avatarUrl || defaultAvatar}
                       alt={`${comment.author?.username || 'User'} avatar`}
                       className="comment-avatar"
-                      onError={(e) => {
-                        e.currentTarget.onerror = null;
-                        e.currentTarget.src = defaultAvatar;
-                      }}
+                      wrapperClassName="comment-avatar-wrap"
+                      lastLogin={comment.author?.lastLogin}
                     />
                   </button>
                   <div className="comment-body">
