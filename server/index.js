@@ -970,7 +970,12 @@ app.post('/api/login', async (req, res) => {
       JWT_SECRET,
       { expiresIn: shouldRemember ? `${AUTH_REMEMBER_DAYS}d` : '24h' }
     );
-    issueAuthCookie(res, token, shouldRemember);
+    if (shouldRemember) {
+      issueAuthCookie(res, token, true);
+    } else {
+      // Do not persist auth across page reloads when "Keep me signed in" is unchecked.
+      clearAuthCookie(res);
+    }
 
     // 4. Send back user info (without the password hash)
     const lastLogin = await touchUserLastLogin(user.id);
