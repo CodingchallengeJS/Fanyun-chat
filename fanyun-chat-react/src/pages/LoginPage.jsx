@@ -25,7 +25,10 @@ function LoginPage({ onLoginSuccess, onGuestLogin }) {
             throw new Error(data.message || 'Failed to log in.');
         }
         
-        onLoginSuccess(data.user);
+        onLoginSuccess({
+          ...data.user,
+          token: data.token || null
+        });
 
     } catch (err) {
         setError(err.message);

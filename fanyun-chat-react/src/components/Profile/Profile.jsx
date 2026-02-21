@@ -125,7 +125,11 @@ function Profile({ isActive, onClose, user, onUserUpdate, targetUserId, onOpenCh
       const imageData = await fileToDataUrl(file);
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/users/${user.id}/avatar`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(user?.token ? { Authorization: `Bearer ${user.token}` } : {})
+        },
         body: JSON.stringify({ imageData })
       });
 
@@ -184,9 +188,12 @@ function Profile({ isActive, onClose, user, onUserUpdate, targetUserId, onOpenCh
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/chats/direct`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(user?.token ? { Authorization: `Bearer ${user.token}` } : {})
+        },
         body: JSON.stringify({
-          userId: user.id,
           targetUserId: profileUser.id
         })
       });

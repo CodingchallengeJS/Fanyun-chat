@@ -48,7 +48,12 @@ function ContactList({ onContactSelect, currentUser, preselectedContact, pinnedC
     const loadConversations = async () => {
       setIsLoading(true);
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/conversations?userId=${currentUser.id}`);
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/conversations`, {
+          credentials: 'include',
+          headers: currentUser?.token
+            ? { Authorization: `Bearer ${currentUser.token}` }
+            : undefined
+        });
         const data = await response.json();
         if (!response.ok) {
           throw new Error(data.message || 'Failed to load conversations.');
@@ -89,7 +94,7 @@ function ContactList({ onContactSelect, currentUser, preselectedContact, pinnedC
     return () => {
       isActive = false;
     };
-  }, [currentUser?.id]);
+  }, [currentUser?.id, currentUser?.token]);
 
   useEffect(() => {
     const onReceiveMessage = (message) => {

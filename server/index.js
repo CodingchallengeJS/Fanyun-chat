@@ -101,6 +101,20 @@ async function getAuthUserFromRequest(req) {
   }
 }
 
+async function requireAuth(req, res, next) {
+  try {
+    const user = await getAuthUserFromRequest(req);
+    if (!user) {
+      return res.status(401).json({ message: 'Authentication required.' });
+    }
+    req.authUser = user;
+    return next();
+  } catch (error) {
+    console.error('Auth middleware error:', error);
+    return res.status(500).json({ message: 'Internal server error.' });
+  }
+}
+
 async function touchUserLastLogin(userId) {
   const uid = Number(userId);
   if (!Number.isInteger(uid) || uid <= 0) {
@@ -810,8 +824,8 @@ app.post('/api/friends/remove', async (req, res) => {
   }
 });
 
-app.post('/api/chats/direct', async (req, res) => {
-  const userId = Number(req.body.userId);
+app.post('/api/chats/direct', requireAuth, async (req, res) => {
+  const userId = Number(req.authUser.id);
   const targetUserId = Number(req.body.targetUserId);
 
   if (!userId || !targetUserId) {
@@ -1016,12 +1030,15 @@ app.post('/api/logout', (req, res) => {
   return res.status(200).json({ message: 'Logged out.' });
 });
 
-app.post('/api/users/:id/avatar', async (req, res) => {
+app.post('/api/users/:id/avatar', requireAuth, async (req, res) => {
   const userId = Number(req.params.id);
   const imageData = typeof req.body.imageData === 'string' ? req.body.imageData : '';
 
   if (!userId || !imageData) {
     return res.status(400).json({ message: 'user id and imageData are required.' });
+  }
+  if (Number(req.authUser.id) !== userId) {
+    return res.status(403).json({ message: 'Cannot update another user avatar.' });
   }
 
   if (!imageData.startsWith('data:image/')) {
@@ -1054,10 +1071,13 @@ app.post('/api/users/:id/avatar', async (req, res) => {
   }
 });
 
-app.post('/api/users/:id/presence', async (req, res) => {
+app.post('/api/users/:id/presence', requireAuth, async (req, res) => {
   const userId = Number(req.params.id);
   if (!Number.isInteger(userId) || userId <= 0) {
     return res.status(400).json({ message: 'Valid user id is required.' });
+  }
+  if (Number(req.authUser.id) !== userId) {
+    return res.status(403).json({ message: 'Cannot update presence for another user.' });
   }
 
   try {
@@ -1074,12 +1094,8 @@ app.post('/api/users/:id/presence', async (req, res) => {
   }
 });
 
-app.get('/api/conversations', async (req, res) => {
-  const userId = Number(req.query.userId);
-
-  if (!userId) {
-    return res.status(400).json({ message: 'userId is required.' });
-  }
+app.get('/api/conversations', requireAuth, async (req, res) => {
+  const userId = Number(req.authUser.id);
 
   try {
     const conversationId = await getGlobalConversationId();
@@ -1160,7 +1176,7 @@ app.get('/api/conversations', async (req, res) => {
   }
 });
 
-app.get('/api/conversations/global/messages', async (req, res) => {
+app.get('/api/conversations/global/messages', requireAuth, async (req, res) => {
   const limitRaw = req.query.limit;
   const limit = Number.isInteger(Number(limitRaw)) ? Math.max(1, Math.min(200, Number(limitRaw))) : 60;
   const beforeTsRaw = Number(req.query.beforeTs);
@@ -1232,9 +1248,9 @@ app.get('/api/conversations/global/messages', async (req, res) => {
   }
 });
 
-app.get('/api/conversations/:id/messages', async (req, res) => {
+app.get('/api/conversations/:id/messages', requireAuth, async (req, res) => {
   const conversationId = Number(req.params.id);
-  const userId = Number(req.query.userId);
+  const userId = Number(req.authUser.id);
   const limitRaw = req.query.limit;
   const limit = Number.isInteger(Number(limitRaw)) ? Math.max(1, Math.min(200, Number(limitRaw))) : 60;
   const beforeTsRaw = Number(req.query.beforeTs);
@@ -1242,7 +1258,7 @@ app.get('/api/conversations/:id/messages', async (req, res) => {
   const hasCursor = Number.isFinite(beforeTsRaw) && Number.isFinite(beforeIdRaw);
 
   if (!conversationId || !userId) {
-    return res.status(400).json({ message: 'conversation id and userId are required.' });
+    return res.status(400).json({ message: 'conversation id is required.' });
   }
 
   try {

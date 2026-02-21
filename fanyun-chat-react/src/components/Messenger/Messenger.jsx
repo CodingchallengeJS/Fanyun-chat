@@ -148,9 +148,6 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
   const fetchMessagePage = useCallback(async (beforeMessage = null) => {
     const params = new URLSearchParams();
     params.set('limit', String(MESSAGE_PAGE_SIZE));
-    if (isDirectConversation) {
-      params.set('userId', String(currentUser.id));
-    }
     if (beforeMessage?.timestamp && beforeMessage?.id) {
       params.set('beforeTs', String(beforeMessage.timestamp));
       params.set('beforeId', String(beforeMessage.id));
@@ -160,7 +157,12 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
       ? `${import.meta.env.VITE_API_URL}/api/conversations/${activeContact.conversationId}/messages?${params.toString()}`
       : `${import.meta.env.VITE_API_URL}/api/conversations/global/messages?${params.toString()}`;
 
-    const response = await fetch(endpoint);
+    const response = await fetch(endpoint, {
+      credentials: 'include',
+      headers: currentUser?.token
+        ? { Authorization: `Bearer ${currentUser.token}` }
+        : undefined
+    });
     const data = await response.json();
     if (!response.ok) {
       throw new Error(data?.message || 'Failed to load messages.');
@@ -176,7 +178,7 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
         .sort((a, b) => a.timestamp - b.timestamp),
       hasMore: Boolean(data.hasMore)
     };
-  }, [activeContact.conversationId, currentUser.id, isDirectConversation]);
+  }, [activeContact.conversationId, currentUser?.token, isDirectConversation]);
 
   const loadOlderMessages = useCallback(async () => {
     if (isLoadingOlder || !hasMoreBefore || messages.length === 0) return;

@@ -83,7 +83,10 @@ function App() {
       try {
         const response = await fetch(`${apiBase}/api/users/${user.id}/presence`, {
           method: 'POST',
-          credentials: 'include'
+          credentials: 'include',
+          headers: user.token
+            ? { Authorization: `Bearer ${user.token}` }
+            : undefined
         });
         const data = await response.json();
         if (!response.ok || !data?.lastLogin) return;
@@ -118,7 +121,7 @@ function App() {
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [user?.id, user?.isGuest]);
+  }, [user?.id, user?.isGuest, user?.token]);
 
   const handleLoginSuccess = (userData) => {
     setUser(userData);
