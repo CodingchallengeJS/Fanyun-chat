@@ -6,6 +6,7 @@ const THEME_STORAGE_KEY = 'fanyun-theme-mode';
 
 function App() {
   const [user, setUser] = useState(null); // null means not logged in
+  const [isAuthChecking, setAuthChecking] = useState(true);
   const [themeMode, setThemeMode] = useState(() => {
     const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
     if (stored === 'light' || stored === 'dark' || stored === 'system') return stored;
@@ -39,6 +40,36 @@ function App() {
   }, [themeMode]);
 
   useEffect(() => {
+    let isMounted = true;
+    const loadSession = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/session`, {
+          credentials: 'include'
+        });
+        if (!response.ok) {
+          return;
+        }
+        const data = await response.json();
+        if (!isMounted) return;
+        if (data?.user) {
+          setUser(data.user);
+        }
+      } catch {
+        // Ignore auth bootstrap errors.
+      } finally {
+        if (isMounted) {
+          setAuthChecking(false);
+        }
+      }
+    };
+
+    loadSession();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!user?.id || user?.isGuest) return undefined;
 
     const apiBase = import.meta.env.VITE_API_URL;
@@ -51,7 +82,8 @@ function App() {
 
       try {
         const response = await fetch(`${apiBase}/api/users/${user.id}/presence`, {
-          method: 'POST'
+          method: 'POST',
+          credentials: 'include'
         });
         const data = await response.json();
         if (!response.ok || !data?.lastLogin) return;
@@ -102,7 +134,15 @@ function App() {
     setUser(guestUser);
   };
   
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch(`${import.meta.env.VITE_API_URL}/api/logout`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+    } catch {
+      // Ignore logout network errors and still clear local state.
+    }
     setUser(null);
   };
 
@@ -114,6 +154,10 @@ function App() {
   };
 
   // Conditionally render based on the user state
+  if (isAuthChecking) {
+    return null;
+  }
+
   if (!user) {
     return <LoginPage 
       onLoginSuccess={handleLoginSuccess} 

@@ -5,6 +5,7 @@ function LoginPage({ onLoginSuccess, onGuestLogin }) {
   const [isRegisterOpen, setRegisterOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
 
   const handleLogin = async (e) => {
@@ -15,7 +16,8 @@ function LoginPage({ onLoginSuccess, onGuestLogin }) {
         const response = await fetch(`${import.meta.env.VITE_API_URL}/api/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password }),
+            credentials: 'include',
+            body: JSON.stringify({ email, password, rememberMe }),
         });
 
         const data = await response.json();
@@ -49,6 +51,14 @@ function LoginPage({ onLoginSuccess, onGuestLogin }) {
             <form onSubmit={handleLogin}>
               <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
               <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required />
+              <label className="remember-me">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                />
+                <span>Keep me signed in</span>
+              </label>
               <button type="submit">Log In</button>
               {error && <p className="error-message">{error}</p>}
             </form>

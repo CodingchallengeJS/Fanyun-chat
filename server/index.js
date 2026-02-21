@@ -16,9 +16,89 @@ const BCRYPT_ROUNDS = Number.isInteger(Number(process.env.BCRYPT_ROUNDS))
   : 12;
 const PASSWORD_PEPPER = process.env.PASSWORD_PEPPER || '';
 const JWT_SECRET = process.env.JWT_SECRET;
+const AUTH_COOKIE_NAME = 'fanyun_auth';
+const AUTH_REMEMBER_DAYS = 30;
+const CLIENT_ORIGINS = [
+  process.env.CLIENT_ORIGIN,
+  'http://localhost:5173',
+  'https://fanyun-chat.vercel.app'
+].filter(Boolean);
 
 function normalizePasswordInput(rawPassword) {
   return `${String(rawPassword || '')}${PASSWORD_PEPPER}`;
+}
+
+function parseCookies(cookieHeader) {
+  if (!cookieHeader || typeof cookieHeader !== 'string') return {};
+  return cookieHeader.split(';').reduce((acc, pair) => {
+    const separatorIndex = pair.indexOf('=');
+    if (separatorIndex < 0) return acc;
+    const key = pair.slice(0, separatorIndex).trim();
+    const value = pair.slice(separatorIndex + 1).trim();
+    if (!key) return acc;
+    acc[key] = decodeURIComponent(value);
+    return acc;
+  }, {});
+}
+
+function issueAuthCookie(res, token, rememberMe) {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const cookieOptions = {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
+    path: '/'
+  };
+  if (rememberMe) {
+    cookieOptions.maxAge = AUTH_REMEMBER_DAYS * 24 * 60 * 60 * 1000;
+  }
+  res.cookie(AUTH_COOKIE_NAME, token, cookieOptions);
+}
+
+function clearAuthCookie(res) {
+  const isProduction = process.env.NODE_ENV === 'production';
+  res.clearCookie(AUTH_COOKIE_NAME, {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
+    path: '/'
+  });
+}
+
+function extractTokenFromRequest(req) {
+  const cookies = parseCookies(req.headers.cookie || '');
+  if (cookies[AUTH_COOKIE_NAME]) return cookies[AUTH_COOKIE_NAME];
+  const authHeader = String(req.headers.authorization || '');
+  if (authHeader.startsWith('Bearer ')) {
+    return authHeader.slice('Bearer '.length).trim();
+  }
+  return null;
+}
+
+async function getAuthUserFromRequest(req) {
+  if (!JWT_SECRET) return null;
+  const token = extractTokenFromRequest(req);
+  if (!token) return null;
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const userId = Number(decoded?.id);
+    if (!Number.isInteger(userId) || userId <= 0) return null;
+    const userResult = await db.query(
+      'SELECT id, username, email, avatar_url, last_login FROM accounts WHERE id = $1 LIMIT 1',
+      [userId]
+    );
+    if (userResult.rows.length === 0) return null;
+    const user = userResult.rows[0];
+    return {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      avatarUrl: user.avatar_url || null,
+      lastLogin: user.last_login || null
+    };
+  } catch {
+    return null;
+  }
 }
 
 async function touchUserLastLogin(userId) {
@@ -34,7 +114,11 @@ async function touchUserLastLogin(userId) {
 }
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: CLIENT_ORIGINS,
+  credentials: true
+}));
+app.use(express.urlencoded({ extended: true }));
 app.use(express.json({ limit: '10mb' }));
 
 cloudinary.config({
@@ -836,7 +920,7 @@ app.post('/api/register', async (req, res) => {
 });
 
 app.post('/api/login', async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, rememberMe } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ message: 'Email and password are required.' });
@@ -880,9 +964,13 @@ app.post('/api/login', async (req, res) => {
       return res.status(500).json({ message: 'Server is not configured for authentication.' });
     }
 
-    const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, {
-      expiresIn: '24h',
-    });
+    const shouldRemember = Boolean(rememberMe);
+    const token = jwt.sign(
+      { id: user.id, username: user.username },
+      JWT_SECRET,
+      { expiresIn: shouldRemember ? `${AUTH_REMEMBER_DAYS}d` : '24h' }
+    );
+    issueAuthCookie(res, token, shouldRemember);
 
     // 4. Send back user info (without the password hash)
     const lastLogin = await touchUserLastLogin(user.id);
@@ -903,6 +991,24 @@ app.post('/api/login', async (req, res) => {
     console.error('Login error:', error);
     res.status(500).json({ message: 'Internal server error.' });
   }
+});
+
+app.get('/api/session', async (req, res) => {
+  try {
+    const user = await getAuthUserFromRequest(req);
+    if (!user) {
+      return res.status(401).json({ message: 'Not authenticated.' });
+    }
+    return res.status(200).json({ user });
+  } catch (error) {
+    console.error('Session fetch error:', error);
+    return res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
+app.post('/api/logout', (req, res) => {
+  clearAuthCookie(res);
+  return res.status(200).json({ message: 'Logged out.' });
 });
 
 app.post('/api/users/:id/avatar', async (req, res) => {
