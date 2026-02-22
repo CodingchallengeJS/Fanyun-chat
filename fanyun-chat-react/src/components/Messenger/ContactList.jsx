@@ -67,6 +67,20 @@ function ContactList({ onContactSelect, currentUser, preselectedContact, pinnedC
           lastLogin: item.lastLogin || null
         }));
 
+        const conversationIdsToJoin = Array.from(
+          new Set(
+            normalized
+              .map((item) => Number(item.conversationId))
+              .filter((id) => Number.isInteger(id) && id > 0)
+          )
+        );
+        if (conversationIdsToJoin.length > 0) {
+          socket.emit('join-conversations', {
+            userId: currentUser.id,
+            conversationIds: conversationIdsToJoin
+          });
+        }
+
         setContacts((prev) => {
           const byId = new Map();
           normalized.forEach((c) => byId.set(c.id, c));

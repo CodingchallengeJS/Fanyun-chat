@@ -144,6 +144,28 @@ cloudinary.config({
 const GLOBAL_CHAT_TITLE = 'Global Chat';
 let globalConversationId = null;
 let globalConversationInit = null;
+const CONVERSATION_ROOM_PREFIX = 'conversation:';
+
+function getConversationRoom(conversationId) {
+  return `${CONVERSATION_ROOM_PREFIX}${conversationId}`;
+}
+
+async function isConversationMember(conversationId, userId) {
+  const cid = Number(conversationId);
+  const uid = Number(userId);
+  if (!Number.isInteger(cid) || cid <= 0 || !Number.isInteger(uid) || uid <= 0) {
+    return false;
+  }
+
+  const membership = await db.query(
+    `SELECT 1
+     FROM conversation_members
+     WHERE conversation_id = $1 AND user_id = $2
+     LIMIT 1`,
+    [cid, uid]
+  );
+  return membership.rows.length > 0;
+}
 
 async function ensureSocialTables() {
   await db.query(`
@@ -1354,6 +1376,53 @@ const io = new Server(server, {
 io.on("connection", socket => {
     console.log("User connected:", socket.id);
 
+    getGlobalConversationId()
+      .then((conversationId) => {
+        socket.join(getConversationRoom(conversationId));
+      })
+      .catch((error) => {
+        console.error('Join global room error:', error);
+      });
+
+    socket.on("join-conversations", async data => {
+      const userId = Number(data?.userId);
+      const incomingIds = Array.isArray(data?.conversationIds) ? data.conversationIds : [];
+      const uniqueConversationIds = Array.from(
+        new Set(
+          incomingIds
+            .map((id) => Number(id))
+            .filter((id) => Number.isInteger(id) && id > 0)
+        )
+      ).slice(0, 200);
+
+      if (!Number.isInteger(userId) || userId <= 0 || uniqueConversationIds.length === 0) {
+        return;
+      }
+
+      try {
+        const globalId = await getGlobalConversationId();
+        const roomIds = new Set([globalId]);
+
+        for (const conversationId of uniqueConversationIds) {
+          if (conversationId === globalId) {
+            roomIds.add(conversationId);
+            continue;
+          }
+
+          const member = await isConversationMember(conversationId, userId);
+          if (member) {
+            roomIds.add(conversationId);
+          }
+        }
+
+        roomIds.forEach((conversationId) => {
+          socket.join(getConversationRoom(conversationId));
+        });
+      } catch (error) {
+        console.error('Join conversations error:', error);
+      }
+    });
+
     // When a user sends a message
     socket.on("send-message", async data => {
         const text = (data && data.text ? String(data.text) : '').trim();
@@ -1371,14 +1440,8 @@ io.on("connection", socket => {
             if (!conversationId) {
               conversationId = await getGlobalConversationId();
             } else {
-              const membership = await db.query(
-                `SELECT 1
-                 FROM conversation_members
-                 WHERE conversation_id = $1 AND user_id = $2
-                 LIMIT 1`,
-                [conversationId, userId]
-              );
-              if (membership.rows.length === 0) {
+              const member = await isConversationMember(conversationId, userId);
+              if (!member) {
                 return;
               }
             }
@@ -1402,14 +1465,26 @@ io.on("connection", socket => {
             if (incomingConversationId) {
               message.conversationId = conversationId;
             }
-            io.emit("receive-message", message);
+            socket.join(getConversationRoom(conversationId));
+            io.to(getConversationRoom(conversationId)).emit("receive-message", message);
             return;
           }
         } catch (error) {
           console.error('Save message error:', error);
         }
 
-        // Fallback: emit without persisting (e.g., guest users)
+        // Fallback: emit guest messages only to the global room.
+        let globalId = null;
+        try {
+          globalId = await getGlobalConversationId();
+        } catch (error) {
+          console.error('Get global conversation error:', error);
+        }
+        if (!globalId) {
+          return;
+        }
+
+        socket.join(getConversationRoom(globalId));
         const message = {
           id: `${socket.id}-${Date.now()}`,
           user: username,
@@ -1418,7 +1493,7 @@ io.on("connection", socket => {
           status: 'sent',
           seenByUsers: []
         };
-        io.emit("receive-message", message);
+        io.to(getConversationRoom(globalId)).emit("receive-message", message);
     });
 
     // When a message is seen by another user
@@ -1437,8 +1512,32 @@ io.on("connection", socket => {
 
         const messageId = Number(data.id);
         const viewerUserId = Number(viewer?.userId);
+        let resolvedConversationId = conversationId;
+        let isDirectConversation = Boolean(conversationId);
         if (Number.isInteger(messageId) && messageId > 0 && Number.isInteger(viewerUserId) && viewerUserId > 0) {
           try {
+            const messageRowResult = await db.query(
+              `SELECT m.conversation_id, c.type AS conversation_type
+               FROM messages m
+               JOIN conversations c ON c.id = m.conversation_id
+               WHERE m.id = $1
+               LIMIT 1`,
+              [messageId]
+            );
+            if (messageRowResult.rows.length === 0) {
+              return;
+            }
+
+            resolvedConversationId = Number(messageRowResult.rows[0].conversation_id);
+            isDirectConversation = messageRowResult.rows[0].conversation_type === 'direct';
+
+            if (isDirectConversation) {
+              const member = await isConversationMember(resolvedConversationId, viewerUserId);
+              if (!member) {
+                return;
+              }
+            }
+
             await db.query(
               `INSERT INTO message_seen (message_id, user_id, seen_at)
                VALUES ($1, $2, NOW())
@@ -1448,23 +1547,65 @@ io.on("connection", socket => {
             );
           } catch (error) {
             console.error('Save message seen error:', error);
+            return;
           }
         }
 
-        io.emit("message-status-changed", {
+        if (!Number.isInteger(resolvedConversationId) || resolvedConversationId <= 0) {
+          return;
+        }
+
+        socket.join(getConversationRoom(resolvedConversationId));
+        io.to(getConversationRoom(resolvedConversationId)).emit("message-status-changed", {
           id: data.id,
           status: 'seen',
-          conversationId,
+          conversationId: isDirectConversation ? resolvedConversationId : null,
           viewer
         });
     });
 
-    socket.on("typing", data => {
-        socket.broadcast.emit("user-typing", data);
+    socket.on("typing", async data => {
+        let conversationId = Number(data?.conversationId);
+        const userId = Number(data?.userId);
+
+        try {
+          if (!Number.isInteger(conversationId) || conversationId <= 0) {
+            conversationId = await getGlobalConversationId();
+          } else if (Number.isInteger(userId) && userId > 0) {
+            const member = await isConversationMember(conversationId, userId);
+            if (!member) {
+              return;
+            }
+          }
+        } catch (error) {
+          console.error('Typing event error:', error);
+          return;
+        }
+
+        socket.join(getConversationRoom(conversationId));
+        socket.to(getConversationRoom(conversationId)).emit("user-typing", data);
     });
 
-    socket.on("stop-typing", data => {
-        socket.broadcast.emit("user-stop-typing", data);
+    socket.on("stop-typing", async data => {
+        let conversationId = Number(data?.conversationId);
+        const userId = Number(data?.userId);
+
+        try {
+          if (!Number.isInteger(conversationId) || conversationId <= 0) {
+            conversationId = await getGlobalConversationId();
+          } else if (Number.isInteger(userId) && userId > 0) {
+            const member = await isConversationMember(conversationId, userId);
+            if (!member) {
+              return;
+            }
+          }
+        } catch (error) {
+          console.error('Stop typing event error:', error);
+          return;
+        }
+
+        socket.join(getConversationRoom(conversationId));
+        socket.to(getConversationRoom(conversationId)).emit("user-stop-typing", data);
     });
     
     socket.on("disconnect", () => {
