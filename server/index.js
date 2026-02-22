@@ -378,6 +378,52 @@ app.post('/api/posts', async (req, res) => {
   }
 });
 
+app.delete('/api/posts/:id', requireAuth, async (req, res) => {
+  const postId = Number(req.params.id);
+  const userId = Number(req.authUser.id);
+
+  if (!Number.isInteger(postId) || postId <= 0) {
+    return res.status(400).json({ message: 'Valid post id is required.' });
+  }
+  if (!Number.isInteger(userId) || userId <= 0) {
+    return res.status(401).json({ message: 'Authentication required.' });
+  }
+
+  try {
+    const postResult = await db.query(
+      'SELECT id, author_id FROM posts WHERE id = $1 LIMIT 1',
+      [postId]
+    );
+
+    if (postResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Post not found.' });
+    }
+
+    if (Number(postResult.rows[0].author_id) !== userId) {
+      return res.status(403).json({ message: 'Cannot delete another user post.' });
+    }
+
+    await db.query('BEGIN');
+    await db.query(
+      `DELETE FROM reactions
+       WHERE target_type = 'post' AND target_id = $1`,
+      [postId]
+    );
+    await db.query('DELETE FROM posts WHERE id = $1', [postId]);
+    await db.query('COMMIT');
+
+    return res.status(200).json({ message: 'Post deleted.' });
+  } catch (error) {
+    try {
+      await db.query('ROLLBACK');
+    } catch {
+      // Ignore rollback failure.
+    }
+    console.error('Delete post error:', error);
+    return res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
 app.get('/api/feed', async (req, res) => {
   const viewerId = Number(req.query.viewerId);
   const limitRaw = Number(req.query.limit);

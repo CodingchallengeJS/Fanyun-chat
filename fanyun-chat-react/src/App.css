@@ -1912,6 +1912,7 @@ html, body {
   border-radius: 10px;
   padding: 10px 11px;
   margin-bottom: 8px;
+  position: relative;
 }
 
 .profile-post-item-clickable {
@@ -1932,6 +1933,71 @@ html, body {
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.profile-post-delete-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(210, 32, 44, 0.12);
+  color: #d2202c;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.16s ease, background-color 0.16s ease, transform 0.16s ease;
+}
+
+.profile-post-item:hover .profile-post-delete-btn,
+.profile-post-item:focus-within .profile-post-delete-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.profile-post-delete-btn:hover,
+.profile-post-delete-btn:focus-visible {
+  background: rgba(210, 32, 44, 0.2);
+  transform: translateY(-1px);
+}
+
+.profile-post-delete-btn:disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.profile-delete-modal-overlay {
+  z-index: 2400;
+}
+
+.profile-delete-modal {
+  width: min(420px, 92vw);
+  max-height: none;
+  overflow: visible;
+  padding: 18px 18px 16px;
+}
+
+.profile-delete-modal-content {
+  padding: 8px 8px 2px;
+  text-align: center;
+}
+
+.profile-delete-modal-content h3 {
+  margin: 0 0 8px;
+}
+
+.profile-delete-modal-content p {
+  margin: 0 0 14px;
+  color: #667085;
+}
+
+.profile-delete-modal-actions {
+  margin-top: 0;
 }
 
 .profile-modal-loading,
@@ -2140,6 +2206,20 @@ html, body {
 
 .app.theme-dark .profile-post-item-clickable:hover {
   background: #1b2943;
+}
+
+.app.theme-dark .profile-post-delete-btn {
+  background: rgba(255, 107, 107, 0.18);
+  color: #ff7f85;
+}
+
+.app.theme-dark .profile-post-delete-btn:hover,
+.app.theme-dark .profile-post-delete-btn:focus-visible {
+  background: rgba(255, 107, 107, 0.28);
+}
+
+.app.theme-dark .profile-delete-modal-content p {
+  color: #b8c6df;
 }
 
 .app.theme-dark .chat-item:hover,

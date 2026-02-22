@@ -33,6 +33,8 @@ function Profile({ isActive, onClose, user, onUserUpdate, targetUserId, onOpenCh
   const [isOpeningChat, setOpeningChat] = useState(false);
   const [profileData, setProfileData] = useState(null);
   const [isReactingPostId, setReactingPostId] = useState(null);
+  const [isDeletingPostId, setDeletingPostId] = useState(null);
+  const [deletePostTargetId, setDeletePostTargetId] = useState(null);
   const [expandedPostIds, setExpandedPostIds] = useState({});
 
   const [commentPost, setCommentPost] = useState(null);
@@ -84,6 +86,7 @@ function Profile({ isActive, onClose, user, onUserUpdate, targetUserId, onOpenCh
       setCommentText('');
       setCommentInputHighlighted(false);
       setNestedProfileTargetUserId(null);
+      setDeletePostTargetId(null);
     }
   }, [isActive]);
 
@@ -95,6 +98,7 @@ function Profile({ isActive, onClose, user, onUserUpdate, targetUserId, onOpenCh
     setCommentText('');
     setCommentInputHighlighted(false);
     setNestedProfileTargetUserId(null);
+    setDeletePostTargetId(null);
   }, [targetUserId]);
 
   if (!isActive) return null;
@@ -368,6 +372,65 @@ function Profile({ isActive, onClose, user, onUserUpdate, targetUserId, onOpenCh
     }
   };
 
+  const requestDeletePost = (postId) => {
+    const normalizedPostId = Number(postId);
+    if (!isProfileSelf || !user?.id || !normalizedPostId) return;
+    setDeletePostTargetId(normalizedPostId);
+  };
+
+  const closeDeletePostModal = () => {
+    if (isDeletingPostId !== null) return;
+    setDeletePostTargetId(null);
+  };
+
+  const handleDeletePost = async () => {
+    const normalizedPostId = Number(deletePostTargetId);
+    if (!isProfileSelf || !user?.id || !normalizedPostId) return;
+
+    setDeletingPostId(normalizedPostId);
+    setError('');
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/posts/${normalizedPostId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: user?.token
+          ? { Authorization: `Bearer ${user.token}` }
+          : undefined
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to delete post.');
+      }
+
+      setProfileData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          posts: prev.posts.filter((post) => Number(post.id) !== normalizedPostId)
+        };
+      });
+      setExpandedPostIds((prev) => {
+        if (!prev[normalizedPostId]) return prev;
+        const next = { ...prev };
+        delete next[normalizedPostId];
+        return next;
+      });
+      setCommentPost((prev) => {
+        if (!prev || Number(prev.id) !== normalizedPostId) return prev;
+        return null;
+      });
+      setComments([]);
+      setCommentsError('');
+      setCommentText('');
+      setCommentInputHighlighted(false);
+      setDeletePostTargetId(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setDeletingPostId(null);
+    }
+  };
+
   const renderExpandablePostContent = (post, options = {}) => {
     const text = String(post?.content || '');
     const postId = Number(post?.id);
@@ -504,6 +567,22 @@ function Profile({ isActive, onClose, user, onUserUpdate, targetUserId, onOpenCh
                       }
                     }}
                   >
+                    {isProfileSelf && (
+                      <button
+                        type="button"
+                        className="profile-post-delete-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          requestDeletePost(post.id);
+                        }}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        aria-label="Delete post"
+                        title="Delete post"
+                        disabled={isDeletingPostId === Number(post.id)}
+                      >
+                        <i className="fa-solid fa-trash" aria-hidden="true"></i>
+                      </button>
+                    )}
                     <div className="profile-post-date">{formatDateTime(post.createdAt)}</div>
                     {renderExpandablePostContent(post, {
                       className: 'profile-post-content',
@@ -645,6 +724,44 @@ function Profile({ isActive, onClose, user, onUserUpdate, targetUserId, onOpenCh
               >
                 <i className="fas fa-paper-plane" aria-hidden="true"></i>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deletePostTargetId && (
+        <div className="profile-modal-overlay profile-delete-modal-overlay" onClick={closeDeletePostModal}>
+          <div className="profile-modal profile-delete-modal" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="close profile-modal-close"
+              onClick={closeDeletePostModal}
+              aria-label="Close delete confirmation"
+              disabled={isDeletingPostId !== null}
+            >
+              x
+            </button>
+            <div className="profile-delete-modal-content">
+              <h3>Do you want to delete this post?</h3>
+              <p>This action cannot be undone.</p>
+              <div className="profile-modal-actions profile-delete-modal-actions">
+                <button
+                  type="button"
+                  className="profile-btn"
+                  onClick={handleDeletePost}
+                  disabled={isDeletingPostId !== null}
+                >
+                  {isDeletingPostId !== null ? 'Deleting...' : 'Delete'}
+                </button>
+                <button
+                  type="button"
+                  className="profile-btn primary"
+                  onClick={closeDeletePostModal}
+                  disabled={isDeletingPostId !== null}
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>
