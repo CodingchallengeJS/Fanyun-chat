@@ -1001,11 +1001,16 @@ html, body {
 }
 
 .contact-details {
+  flex: 1;
+  min-width: 0;
   overflow: hidden; /* Important for text truncation */
 }
 
 .contact-name {
   font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .contact-last-message {
