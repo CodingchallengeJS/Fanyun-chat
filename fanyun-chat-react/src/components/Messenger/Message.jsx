@@ -14,20 +14,42 @@ function Message({ msg, username, isContinuous, isMostRecentOwnMessage }) {
   const seenByUsers = Array.isArray(msg.seenByUsers) ? msg.seenByUsers : [];
   const shouldShowSeenReceipts = isMe && seenByUsers.length > 0;
   const shouldShowStatus = isMe && isMostRecentOwnMessage && !shouldShowSeenReceipts;
+  const avatarSrc = msg.avatarUrl || msg.avatar || defaultAvatar;
+  const avatarLastLogin = msg.userLastLogin || msg.lastLogin || null;
 
   // Add the 'continuous' class if the prop is true
   const messageClasses = `message ${isMe ? 'me' : 'other'} ${isContinuous ? 'continuous' : ''}`;
 
   return (
     <div className={messageClasses}>
-      {/* Show username only if it's not a continuous message */}
-      {!isContinuous && !isMe && <div className="username">{msg.user}</div>}
+      {!isMe ? (
+        <div className="message-row">
+          <div className="message-avatar-slot">
+            {!isContinuous && (
+              <AvatarWithStatus
+                src={avatarSrc}
+                alt={`${msg.user || 'User'} avatar`}
+                className="message-avatar"
+                wrapperClassName="message-avatar-wrap"
+                lastLogin={avatarLastLogin}
+              />
+            )}
+          </div>
+          <div className="message-content">
+            {!isContinuous && <div className="username">{msg.user}</div>}
+            <div className="bubble-wrapper">
+              <div className="bubble">{msg.text}</div>
+              <div className="time">{formatTime(msg.timestamp)}</div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="bubble-wrapper">
+          <div className="bubble">{msg.text}</div>
+          <div className="time">{formatTime(msg.timestamp)}</div>
+        </div>
+      )}
 
-      <div className="bubble-wrapper">
-        <div className="bubble">{msg.text}</div>
-        <div className="time">{formatTime(msg.timestamp)}</div>
-      </div>
-      
       {shouldShowStatus && <div className="status">{msg.status || 'sent'}</div>}
       {shouldShowSeenReceipts && (
         <div className="seen-receipts" aria-label="Seen by">

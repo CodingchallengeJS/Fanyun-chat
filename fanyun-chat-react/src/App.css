@@ -128,7 +128,7 @@ html, body {
 }
 
 .chat-header {
-  height: 60px;
+  height: 64px;
   border-bottom: 1px solid #e2e7f0;
   display: flex;
   justify-content: space-between;
@@ -164,8 +164,8 @@ html, body {
 }
 
 .chat-header-avatar {
-  width: 34px;
-  height: 34px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   object-fit: cover;
   border: 1px solid #d6deee;
@@ -744,6 +744,35 @@ html, body {
   align-items: flex-start;
 }
 
+.message-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+}
+
+.message-avatar-slot {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  padding-top: 6px;
+}
+
+.message-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.message-avatar-wrap {
+  --avatar-status-ring-color: #ffffff;
+}
+
+.message-content {
+  max-width: calc(100% - 50px);
+}
+
 /* username on top */
 .message .username {
   font-size: 12px;
@@ -780,6 +809,10 @@ html, body {
 .message.other .bubble {
   background: #ffffff;
   border-bottom-left-radius: 0;
+}
+
+.message.other .message-row {
+  padding-left: 0px;
 }
 
 .message {
@@ -2305,6 +2338,10 @@ html, body {
 }
 
 .app.theme-dark .seen-receipt-avatar-wrap {
+  --avatar-status-ring-color: #111a2b;
+}
+
+.app.theme-dark .message-avatar-wrap {
   --avatar-status-ring-color: #111a2b;
 }
 
