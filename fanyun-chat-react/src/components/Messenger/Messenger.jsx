@@ -263,13 +263,7 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
       if (newMessage.user !== currentUser.username) {
         socket.emit('message-seen', {
           id: newMessage.id,
-          conversationId: incomingIsDirect ? newMessage.conversationId : null,
-          viewer: {
-            userId: currentUser.id,
-            username: currentUser.username,
-            avatarUrl: currentUser.avatarUrl || null,
-            lastLogin: currentUser.lastLogin || null
-          }
+          conversationId: incomingIsDirect ? newMessage.conversationId : null
         });
       }
       setMessages((prevMessages) => [
@@ -326,13 +320,7 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
 
           socket.emit('message-seen', {
             id: msg.id,
-            conversationId: isDirectConversation ? activeContact.conversationId : null,
-            viewer: {
-              userId: currentUser.id,
-              username: currentUser.username,
-              avatarUrl: currentUser.avatarUrl || null,
-              lastLogin: currentUser.lastLogin || null
-            }
+            conversationId: isDirectConversation ? activeContact.conversationId : null
           });
         });
       } catch {
@@ -405,8 +393,6 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
   const sendMessage = () => {
     if (inputValue.trim()) {
       socket.emit('send-message', {
-        user: currentUser.username,
-        userId: currentUser.id,
         text: inputValue,
         timestamp: Date.now(),
         conversationId: isDirectConversation ? activeContact.conversationId : null

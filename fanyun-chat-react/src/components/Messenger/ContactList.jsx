@@ -76,7 +76,6 @@ function ContactList({ onContactSelect, currentUser, preselectedContact, pinnedC
         );
         if (conversationIdsToJoin.length > 0) {
           socket.emit('join-conversations', {
-            userId: currentUser.id,
             conversationIds: conversationIdsToJoin
           });
         }

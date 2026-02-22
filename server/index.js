@@ -75,9 +75,18 @@ function extractTokenFromRequest(req) {
   return null;
 }
 
-async function getAuthUserFromRequest(req) {
+function normalizeAuthToken(rawToken) {
+  const token = String(rawToken || '').trim();
+  if (!token) return null;
+  if (token.startsWith('Bearer ')) {
+    return token.slice('Bearer '.length).trim();
+  }
+  return token;
+}
+
+async function getAuthUserFromToken(rawToken) {
   if (!JWT_SECRET) return null;
-  const token = extractTokenFromRequest(req);
+  const token = normalizeAuthToken(rawToken);
   if (!token) return null;
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
@@ -99,6 +108,11 @@ async function getAuthUserFromRequest(req) {
   } catch {
     return null;
   }
+}
+
+async function getAuthUserFromRequest(req) {
+  const token = extractTokenFromRequest(req);
+  return getAuthUserFromToken(token);
 }
 
 async function requireAuth(req, res, next) {
@@ -1373,8 +1387,30 @@ const io = new Server(server, {
   }
 });
 
+function extractTokenFromSocket(socket) {
+  const authToken = normalizeAuthToken(socket?.handshake?.auth?.token);
+  if (authToken) return authToken;
+
+  const authHeaderToken = normalizeAuthToken(socket?.handshake?.headers?.authorization);
+  if (authHeaderToken) return authHeaderToken;
+
+  const cookies = parseCookies(socket?.handshake?.headers?.cookie || '');
+  return normalizeAuthToken(cookies[AUTH_COOKIE_NAME]);
+}
+
+io.use(async (socket, next) => {
+  try {
+    const token = extractTokenFromSocket(socket);
+    const user = await getAuthUserFromToken(token);
+    socket.authUser = user;
+    return next();
+  } catch (error) {
+    return next(error);
+  }
+});
+
 io.on("connection", socket => {
-    console.log("User connected:", socket.id);
+    console.log("User connected:", socket.id, socket.authUser ? `(user ${socket.authUser.id})` : '(guest)');
 
     getGlobalConversationId()
       .then((conversationId) => {
@@ -1385,7 +1421,7 @@ io.on("connection", socket => {
       });
 
     socket.on("join-conversations", async data => {
-      const userId = Number(data?.userId);
+      const authUserId = Number(socket.authUser?.id);
       const incomingIds = Array.isArray(data?.conversationIds) ? data.conversationIds : [];
       const uniqueConversationIds = Array.from(
         new Set(
@@ -1395,7 +1431,7 @@ io.on("connection", socket => {
         )
       ).slice(0, 200);
 
-      if (!Number.isInteger(userId) || userId <= 0 || uniqueConversationIds.length === 0) {
+      if (!Number.isInteger(authUserId) || authUserId <= 0 || uniqueConversationIds.length === 0) {
         return;
       }
 
@@ -1409,7 +1445,7 @@ io.on("connection", socket => {
             continue;
           }
 
-          const member = await isConversationMember(conversationId, userId);
+          const member = await isConversationMember(conversationId, authUserId);
           if (member) {
             roomIds.add(conversationId);
           }
@@ -1426,8 +1462,8 @@ io.on("connection", socket => {
     // When a user sends a message
     socket.on("send-message", async data => {
         const text = (data && data.text ? String(data.text) : '').trim();
-        const username = data && data.user ? String(data.user) : 'Unknown';
-        const userId = data && data.userId ? Number(data.userId) : null;
+        const username = socket.authUser?.username ? String(socket.authUser.username) : (data && data.user ? String(data.user) : 'Unknown');
+        const userId = Number(socket.authUser?.id);
         const incomingConversationId = data && data.conversationId ? Number(data.conversationId) : null;
 
         if (!text) {
@@ -1435,7 +1471,7 @@ io.on("connection", socket => {
         }
 
         try {
-          if (userId) {
+          if (Number.isInteger(userId) && userId > 0) {
             let conversationId = incomingConversationId;
             if (!conversationId) {
               conversationId = await getGlobalConversationId();
@@ -1498,20 +1534,22 @@ io.on("connection", socket => {
 
     // When a message is seen by another user
     socket.on("message-seen", async data => {
-        if (!data || !data.id) {
+        const authUserId = Number(socket.authUser?.id);
+        if (!data || !data.id || !Number.isInteger(authUserId) || authUserId <= 0) {
           return;
         }
 
-        const viewer = data.viewer && data.viewer.userId ? {
-          userId: String(data.viewer.userId),
-          username: data.viewer.username || 'Unknown',
-          avatarUrl: data.viewer.avatarUrl || null
-        } : null;
+        const viewer = {
+          userId: String(authUserId),
+          username: socket.authUser.username || 'Unknown',
+          avatarUrl: socket.authUser.avatarUrl || null,
+          lastLogin: socket.authUser.lastLogin || null
+        };
 
         const conversationId = data.conversationId ? Number(data.conversationId) : null;
 
         const messageId = Number(data.id);
-        const viewerUserId = Number(viewer?.userId);
+        const viewerUserId = authUserId;
         let resolvedConversationId = conversationId;
         let isDirectConversation = Boolean(conversationId);
         if (Number.isInteger(messageId) && messageId > 0 && Number.isInteger(viewerUserId) && viewerUserId > 0) {
@@ -1566,7 +1604,7 @@ io.on("connection", socket => {
 
     socket.on("typing", async data => {
         let conversationId = Number(data?.conversationId);
-        const userId = Number(data?.userId);
+        const userId = Number(socket.authUser?.id);
 
         try {
           if (!Number.isInteger(conversationId) || conversationId <= 0) {
@@ -1576,6 +1614,8 @@ io.on("connection", socket => {
             if (!member) {
               return;
             }
+          } else {
+            return;
           }
         } catch (error) {
           console.error('Typing event error:', error);
@@ -1583,12 +1623,16 @@ io.on("connection", socket => {
         }
 
         socket.join(getConversationRoom(conversationId));
-        socket.to(getConversationRoom(conversationId)).emit("user-typing", data);
+        socket.to(getConversationRoom(conversationId)).emit("user-typing", {
+          conversationId,
+          userId,
+          username: socket.authUser?.username || 'Unknown'
+        });
     });
 
     socket.on("stop-typing", async data => {
         let conversationId = Number(data?.conversationId);
-        const userId = Number(data?.userId);
+        const userId = Number(socket.authUser?.id);
 
         try {
           if (!Number.isInteger(conversationId) || conversationId <= 0) {
@@ -1598,6 +1642,8 @@ io.on("connection", socket => {
             if (!member) {
               return;
             }
+          } else {
+            return;
           }
         } catch (error) {
           console.error('Stop typing event error:', error);
@@ -1605,7 +1651,11 @@ io.on("connection", socket => {
         }
 
         socket.join(getConversationRoom(conversationId));
-        socket.to(getConversationRoom(conversationId)).emit("user-stop-typing", data);
+        socket.to(getConversationRoom(conversationId)).emit("user-stop-typing", {
+          conversationId,
+          userId,
+          username: socket.authUser?.username || 'Unknown'
+        });
     });
     
     socket.on("disconnect", () => {

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import LoginPage from '../pages/LoginPage';
 import AppLayout from '../layouts/AppLayout';
+import { disconnectSocket, syncSocketAuth } from '../lib/socket';
 
 const THEME_STORAGE_KEY = 'fanyun-theme-mode';
 
@@ -68,6 +69,17 @@ function App() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (isAuthChecking) return;
+
+    if (!user) {
+      disconnectSocket();
+      return;
+    }
+
+    syncSocketAuth(user?.token || null);
+  }, [isAuthChecking, user]);
 
   useEffect(() => {
     if (!user?.id || user?.isGuest) return undefined;
