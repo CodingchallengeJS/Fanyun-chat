@@ -124,26 +124,40 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
     currentUser.username,
     searchedMessages
   ]);
-  const collapseSeenReceiptsToLatest = (messageList) => {
-    const latestSeenByUser = new Map();
+  const getMessageSenderKey = useCallback((msg) => {
+    if (!msg) return null;
+    if (msg.userId !== undefined && msg.userId !== null) {
+      return `id:${String(msg.userId)}`;
+    }
+    if (msg.user) {
+      return `name:${String(msg.user)}`;
+    }
+    return null;
+  }, []);
+
+  const collapseSeenReceiptsToLatestPerSender = useCallback((messageList) => {
+    const latestSeenByUserAndSender = new Map();
     const cloned = messageList.map((msg) => ({ ...msg, seenByUsers: [] }));
 
     messageList.forEach((msg, index) => {
+      const senderKey = getMessageSenderKey(msg);
+      if (!senderKey) return;
       const seenByUsers = Array.isArray(msg.seenByUsers) ? msg.seenByUsers : [];
       seenByUsers.forEach((viewer) => {
         if (!viewer?.userId) return;
-        latestSeenByUser.set(String(viewer.userId), { index, viewer });
+        const receiptKey = `${String(viewer.userId)}::${senderKey}`;
+        latestSeenByUserAndSender.set(receiptKey, { index, viewer });
       });
     });
 
-    latestSeenByUser.forEach(({ index, viewer }) => {
+    latestSeenByUserAndSender.forEach(({ index, viewer }) => {
       if (!cloned[index]) return;
       cloned[index].seenByUsers.push(viewer);
       cloned[index].status = 'seen';
     });
 
     return cloned;
-  };
+  }, [getMessageSenderKey]);
 
   const normalizeMessage = useCallback((rawMessage) => {
     const msg = rawMessage || {};
@@ -243,7 +257,16 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
         lastLogin: payload.viewer.lastLogin || null
       };
 
+      const targetMessage = previous.find((msg) => String(msg.id) === String(payload.id));
+      if (!targetMessage) {
+        return previous;
+      }
+      const targetSenderKey = getMessageSenderKey(targetMessage);
+
       const removedPreviousSeen = previous.map((msg) => {
+        if (getMessageSenderKey(msg) !== targetSenderKey) {
+          return msg;
+        }
         const existingSeen = Array.isArray(msg.seenByUsers) ? msg.seenByUsers : [];
         const filteredSeen = existingSeen.filter((viewer) => String(viewer.userId) !== normalizedViewer.userId);
         if (filteredSeen.length === existingSeen.length) {
@@ -258,10 +281,11 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
         }
 
         const existingSeen = Array.isArray(msg.seenByUsers) ? msg.seenByUsers : [];
+        const dedupedSeen = existingSeen.filter((viewer) => String(viewer.userId) !== normalizedViewer.userId);
         return {
           ...msg,
           status: payload.status || 'seen',
-          seenByUsers: [...existingSeen, normalizedViewer]
+          seenByUsers: [...dedupedSeen, normalizedViewer]
         };
       });
     };
@@ -308,7 +332,7 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
       socket.off('receive-message', onReceiveMessage);
       socket.off('message-status-changed', onStatusChanged);
     };
-  }, [activeContact?.conversationId, currentUser.avatarUrl, currentUser.id, currentUser.lastLogin, currentUser.username, isDirectConversation, normalizeMessage]);
+  }, [activeContact?.conversationId, currentUser.avatarUrl, currentUser.id, currentUser.lastLogin, currentUser.username, getMessageSenderKey, isDirectConversation, normalizeMessage]);
 
   useEffect(() => {
     let isActive = true;
@@ -318,7 +342,7 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
         const page = await fetchMessagePage();
         if (!isActive) return;
 
-        const collapsedMessages = collapseSeenReceiptsToLatest(page.messages);
+        const collapsedMessages = collapseSeenReceiptsToLatestPerSender(page.messages);
         shouldAutoScrollRef.current = true;
         prependScrollRef.current = null;
         setHasMoreBefore(page.hasMore);
@@ -346,7 +370,7 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
     return () => {
       isActive = false;
     };
-  }, [activeContact?.conversationId, currentUser.avatarUrl, currentUser.id, currentUser.lastLogin, currentUser.username, fetchMessagePage, isDirectConversation]);
+  }, [activeContact?.conversationId, collapseSeenReceiptsToLatestPerSender, currentUser.avatarUrl, currentUser.id, currentUser.lastLogin, currentUser.username, fetchMessagePage, isDirectConversation]);
 
   useEffect(() => {
     try {
