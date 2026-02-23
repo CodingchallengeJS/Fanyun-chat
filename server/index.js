@@ -1283,6 +1283,7 @@ app.get('/api/conversations/global/messages', requireAuth, async (req, res) => {
               m.created_at,
               a.username,
               a.id AS user_id,
+              a.avatar_url AS user_avatar_url,
               a.last_login AS user_last_login,
               COALESCE(
                 json_agg(
@@ -1301,7 +1302,7 @@ app.get('/api/conversations/global/messages', requireAuth, async (req, res) => {
        LEFT JOIN accounts seen_user ON seen_user.id = ms.user_id
        WHERE m.conversation_id = $1
          ${cursorClause}
-       GROUP BY m.id, m.content, m.created_at, a.username, a.id, a.last_login, m.sender_id
+       GROUP BY m.id, m.content, m.created_at, a.username, a.id, a.avatar_url, a.last_login, m.sender_id
        ORDER BY m.created_at DESC, m.id DESC
        LIMIT $${limitParamIndex}`,
       queryParams
@@ -1312,6 +1313,7 @@ app.get('/api/conversations/global/messages', requireAuth, async (req, res) => {
       id: row.id,
       user: row.username,
       userId: row.user_id,
+      avatarUrl: row.user_avatar_url || null,
       userLastLogin: row.user_last_login,
       text: row.content,
       timestamp: new Date(row.created_at).getTime(),
@@ -1372,6 +1374,7 @@ app.get('/api/conversations/:id/messages', requireAuth, async (req, res) => {
               m.created_at,
               a.username,
               a.id AS user_id,
+              a.avatar_url AS user_avatar_url,
               a.last_login AS user_last_login,
               COALESCE(
                 json_agg(
@@ -1390,7 +1393,7 @@ app.get('/api/conversations/:id/messages', requireAuth, async (req, res) => {
        LEFT JOIN accounts seen_user ON seen_user.id = ms.user_id
        WHERE m.conversation_id = $1
          ${cursorClause}
-       GROUP BY m.id, m.content, m.created_at, a.username, a.id, a.last_login, m.sender_id
+       GROUP BY m.id, m.content, m.created_at, a.username, a.id, a.avatar_url, a.last_login, m.sender_id
        ORDER BY m.created_at DESC, m.id DESC
        LIMIT $${limitParamIndex}`,
       queryParams
@@ -1402,6 +1405,7 @@ app.get('/api/conversations/:id/messages', requireAuth, async (req, res) => {
       conversationId,
       user: row.username,
       userId: row.user_id,
+      avatarUrl: row.user_avatar_url || null,
       userLastLogin: row.user_last_login,
       text: row.content,
       timestamp: new Date(row.created_at).getTime(),
@@ -1539,6 +1543,8 @@ io.on("connection", socket => {
               id: saved.id,
               user: username,
               userId,
+              avatarUrl: socket.authUser?.avatarUrl || null,
+              userLastLogin: socket.authUser?.lastLogin || null,
               text,
               timestamp: new Date(saved.created_at).getTime(),
               status: 'sent',

@@ -145,6 +145,25 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
     return cloned;
   };
 
+  const normalizeMessage = useCallback((rawMessage) => {
+    const msg = rawMessage || {};
+    const fromCurrentUser = msg.user === currentUser.username;
+    const fallbackAvatar = fromCurrentUser
+      ? currentUser.avatarUrl || defaultAvatar
+      : (activeContact.avatar || activeContact.avatarUrl || defaultAvatar);
+
+    return {
+      ...msg,
+      avatarUrl: msg.avatarUrl || msg.avatar_url || msg.avatar || fallbackAvatar,
+      seenByUsers: Array.isArray(msg.seenByUsers) ? msg.seenByUsers : []
+    };
+  }, [
+    activeContact.avatar,
+    activeContact.avatarUrl,
+    currentUser.avatarUrl,
+    currentUser.username
+  ]);
+
   const fetchMessagePage = useCallback(async (beforeMessage = null) => {
     const params = new URLSearchParams();
     params.set('limit', String(MESSAGE_PAGE_SIZE));
@@ -171,14 +190,11 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
     const incoming = Array.isArray(data.messages) ? data.messages : [];
     return {
       messages: incoming
-        .map((msg) => ({
-          ...msg,
-          seenByUsers: Array.isArray(msg.seenByUsers) ? msg.seenByUsers : []
-        }))
+        .map((msg) => normalizeMessage(msg))
         .sort((a, b) => a.timestamp - b.timestamp),
       hasMore: Boolean(data.hasMore)
     };
-  }, [activeContact.conversationId, currentUser?.token, isDirectConversation]);
+  }, [activeContact.conversationId, currentUser?.token, isDirectConversation, normalizeMessage]);
 
   const loadOlderMessages = useCallback(async () => {
     if (isLoadingOlder || !hasMoreBefore || messages.length === 0) return;
@@ -268,10 +284,7 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
       }
       setMessages((prevMessages) => [
         ...prevMessages,
-        {
-          ...newMessage,
-          seenByUsers: Array.isArray(newMessage.seenByUsers) ? newMessage.seenByUsers : []
-        }
+        normalizeMessage(newMessage)
       ]);
     };
 
@@ -295,7 +308,7 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
       socket.off('receive-message', onReceiveMessage);
       socket.off('message-status-changed', onStatusChanged);
     };
-  }, [activeContact?.conversationId, currentUser.avatarUrl, currentUser.id, currentUser.lastLogin, currentUser.username, isDirectConversation]);
+  }, [activeContact?.conversationId, currentUser.avatarUrl, currentUser.id, currentUser.lastLogin, currentUser.username, isDirectConversation, normalizeMessage]);
 
   useEffect(() => {
     let isActive = true;
