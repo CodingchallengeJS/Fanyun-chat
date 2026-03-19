@@ -13,12 +13,23 @@ function Message({ msg, username, isContinuous, isMostRecentOwnMessage }) {
   const isMe = msg.user === username;
   const seenByUsers = Array.isArray(msg.seenByUsers) ? msg.seenByUsers : [];
   const shouldShowSeenReceipts = isMe && seenByUsers.length > 0;
+
+  // Only show text status (like "Sent") if it's the most recent message AND no one has seen it yet
   const shouldShowStatus = isMe && isMostRecentOwnMessage && !shouldShowSeenReceipts;
+
   const avatarSrc = msg.avatarUrl || msg.avatar || defaultAvatar;
   const avatarLastLogin = msg.userLastLogin || msg.lastLogin || null;
 
   // Add the 'continuous' class if the prop is true
   const messageClasses = `message ${isMe ? 'me' : 'other'} ${isContinuous ? 'continuous' : ''}`;
+
+  const renderStatus = () => {
+    if (!shouldShowStatus) return null;
+    const statusText = msg.status || 'sent';
+    // Capitalize first letter (e.g., 'seen' -> 'Seen')
+    const displayStatus = statusText.charAt(0).toUpperCase() + statusText.slice(1);
+    return <div className="status">{displayStatus}</div>;
+  };
 
   return (
     <div className={messageClasses}>
@@ -50,7 +61,7 @@ function Message({ msg, username, isContinuous, isMostRecentOwnMessage }) {
         </div>
       )}
 
-      {shouldShowStatus && <div className="status">{msg.status || 'sent'}</div>}
+      {renderStatus()}
       {shouldShowSeenReceipts && (
         <div className="seen-receipts" aria-label="Seen by">
           {seenByUsers.map((viewer) => (

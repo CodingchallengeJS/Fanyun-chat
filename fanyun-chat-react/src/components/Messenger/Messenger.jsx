@@ -136,28 +136,30 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
   }, []);
 
   const collapseSeenReceiptsToLatestPerSender = useCallback((messageList) => {
-    const latestSeenByUserAndSender = new Map();
+    const latestSeenByUser = new Map();
     const cloned = messageList.map((msg) => ({ ...msg, seenByUsers: [] }));
 
     messageList.forEach((msg, index) => {
-      const senderKey = getMessageSenderKey(msg);
-      if (!senderKey) return;
       const seenByUsers = Array.isArray(msg.seenByUsers) ? msg.seenByUsers : [];
       seenByUsers.forEach((viewer) => {
         if (!viewer?.userId) return;
-        const receiptKey = `${String(viewer.userId)}::${senderKey}`;
-        latestSeenByUserAndSender.set(receiptKey, { index, viewer });
+        const userId = String(viewer.userId);
+        const existing = latestSeenByUser.get(userId);
+        if (!existing || index > existing.index) {
+          latestSeenByUser.set(userId, { index, viewer });
+        }
       });
     });
 
-    latestSeenByUserAndSender.forEach(({ index, viewer }) => {
-      if (!cloned[index]) return;
-      cloned[index].seenByUsers.push(viewer);
-      cloned[index].status = 'seen';
+    latestSeenByUser.forEach(({ index, viewer }) => {
+      if (cloned[index]) {
+        cloned[index].seenByUsers.push(viewer);
+        cloned[index].status = 'seen';
+      }
     });
 
     return cloned;
-  }, [getMessageSenderKey]);
+  }, []);
 
   const normalizeMessage = useCallback((rawMessage) => {
     const msg = rawMessage || {};
@@ -233,16 +235,17 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
       shouldAutoScrollRef.current = false;
       setHasMoreBefore(page.hasMore);
       setMessages((prev) => {
-        const existing = new Set(prev.map((m) => String(m.id)));
-        const olderOnly = page.messages.filter((m) => !existing.has(String(m.id)));
-        return [...olderOnly, ...prev];
+        const existingIds = new Set(prev.map((m) => String(m.id)));
+        const olderOnly = page.messages.filter((m) => !existingIds.has(String(m.id)));
+        const combined = [...olderOnly, ...prev];
+        return collapseSeenReceiptsToLatestPerSender(combined);
       });
     } catch {
       prependScrollRef.current = null;
     } finally {
       setLoadingOlder(false);
     }
-  }, [fetchMessagePage, hasMoreBefore, isLoadingOlder, messages]);
+  }, [collapseSeenReceiptsToLatestPerSender, fetchMessagePage, hasMoreBefore, isLoadingOlder, messages]);
 
   useEffect(() => {
     const applySeenUpdate = (previous, payload) => {
@@ -257,16 +260,8 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
         lastLogin: payload.viewer.lastLogin || null
       };
 
-      const targetMessage = previous.find((msg) => String(msg.id) === String(payload.id));
-      if (!targetMessage) {
-        return previous;
-      }
-      const targetSenderKey = getMessageSenderKey(targetMessage);
-
+      // Remove this viewer from ALL other messages in the current list
       const removedPreviousSeen = previous.map((msg) => {
-        if (getMessageSenderKey(msg) !== targetSenderKey) {
-          return msg;
-        }
         const existingSeen = Array.isArray(msg.seenByUsers) ? msg.seenByUsers : [];
         const filteredSeen = existingSeen.filter((viewer) => String(viewer.userId) !== normalizedViewer.userId);
         if (filteredSeen.length === existingSeen.length) {
@@ -275,6 +270,7 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
         return { ...msg, seenByUsers: filteredSeen };
       });
 
+      // Add the viewer to the target message
       return removedPreviousSeen.map((msg) => {
         if (String(msg.id) !== String(payload.id)) {
           return msg;
@@ -306,10 +302,10 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
           conversationId: incomingIsDirect ? newMessage.conversationId : null
         });
       }
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        normalizeMessage(newMessage)
-      ]);
+      setMessages((prevMessages) => {
+        const combined = [...prevMessages, normalizeMessage(newMessage)];
+        return collapseSeenReceiptsToLatestPerSender(combined);
+      });
     };
 
     const onStatusChanged = (payload) => {
@@ -332,7 +328,7 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
       socket.off('receive-message', onReceiveMessage);
       socket.off('message-status-changed', onStatusChanged);
     };
-  }, [activeContact?.conversationId, currentUser.avatarUrl, currentUser.id, currentUser.lastLogin, currentUser.username, getMessageSenderKey, isDirectConversation, normalizeMessage]);
+  }, [activeContact?.conversationId, currentUser.avatarUrl, currentUser.id, currentUser.lastLogin, currentUser.username, isDirectConversation, normalizeMessage]);
 
   useEffect(() => {
     let isActive = true;
@@ -398,6 +394,10 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
     if (!chatBody) return;
 
     const onScroll = () => {
+      // If user is within 100px of the bottom, we should auto-scroll on new messages
+      const isNearBottom = chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight < 100;
+      shouldAutoScrollRef.current = isNearBottom;
+
       if (chatBody.scrollTop <= 40) {
         loadOlderMessages();
       }
@@ -424,7 +424,6 @@ function Messenger({ currentUser, preselectedContact, onOpenProfile }) {
     if (shouldAutoScrollRef.current) {
       chatBody.scrollTop = chatBody.scrollHeight;
     }
-    shouldAutoScrollRef.current = true;
   }, [messages]);
 
   const sendMessage = () => {
